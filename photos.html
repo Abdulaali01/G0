@@ -3,18 +3,24 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>تقرير الصور</title>
+
+<title>📋 تقرير الصور مع الإحداثيات</title>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
 <style>
 body{font-family:Tahoma;background:#f4f6fb;padding:16px}
-.toolbar{display:flex;gap:8px;margin-bottom:10px}
+.toolbar{display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap}
 button{padding:10px;border:none;border-radius:8px;font-weight:bold}
 .cam{background:#1a73e8;color:#fff}
 .gal{background:#0f9d58;color:#fff}
-.print{background:#000;color:#fff}
+.pdf{background:#000;color:#fff}
+.card{background:#fff;border-radius:12px;padding:12px}
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px}
-.box{background:#fff;border-radius:10px;overflow:hidden}
+.box{border:1px solid #ddd;border-radius:8px;overflow:hidden}
 .box img{width:100%;height:200px;object-fit:cover}
+.head{font-size:14px;margin-bottom:8px;line-height:1.6}
 </style>
 </head>
 
@@ -23,11 +29,15 @@ button{padding:10px;border:none;border-radius:8px;font-weight:bold}
 <div class="toolbar">
 <button class="cam" onclick="cam.click()">📷 كاميرا</button>
 <button class="gal" onclick="gal.click()">🖼️ معرض</button>
-<button class="print" id="print">🖨️ طباعة</button>
+<button class="pdf" onclick="exportPDF()">📄 PDF</button>
 </div>
 
-<div id="report">
+<div class="card" id="report">
+
+<div class="head" id="info">بانتظار التقاط صورة...</div>
+
 <div class="grid" id="grid"></div>
+
 </div>
 
 <input id="cam" type="file" accept="image/*" capture hidden>
@@ -35,27 +45,44 @@ button{padding:10px;border:none;border-radius:8px;font-weight:bold}
 
 <script>
 const grid=document.getElementById("grid");
-const printBtn=document.getElementById("print");
+const info=document.getElementById("info");
 
 async function stamp(file){
+
  return new Promise(r=>{
  navigator.geolocation.getCurrentPosition(p=>{
+
  const img=new Image();
  img.src=URL.createObjectURL(file);
+
  img.onload=()=>{
+
  const c=document.createElement("canvas");
- c.width=img.width;c.height=img.height;
+ c.width=img.width;
+ c.height=img.height;
  const x=c.getContext("2d");
+
  x.drawImage(img,0,0);
+
  const d=new Date();
- const t=`${p.coords.latitude.toFixed(6)},${p.coords.longitude.toFixed(6)} | ${d.toLocaleString()}`;
- x.fillStyle="rgba(0,0,0,.6)";
- x.fillRect(0,c.height-90,c.width,90);
+
+ const line1=`LAT: ${p.coords.latitude.toFixed(6)} , LNG: ${p.coords.longitude.toFixed(6)}`;
+ const line2=`${d.toLocaleDateString()} ${d.toLocaleTimeString()}`;
+
+ info.innerHTML=line1+"<br>"+line2;
+
+ x.fillStyle="rgba(0,0,0,.65)";
+ x.fillRect(0,c.height-130,c.width,130);
+
  x.fillStyle="#fff";
- x.font="bold 32px Tahoma";
- x.fillText(t,20,c.height-40);
+ x.font="bold 36px Tahoma";
+ x.fillText(line1,20,c.height-80);
+ x.font="32px Tahoma";
+ x.fillText(line2,20,c.height-35);
+
  r(c.toDataURL("image/jpeg",.95));
  };
+
  });
  });
 }
@@ -72,25 +99,23 @@ gal.onchange=e=>{
 };
 
 function add(src){
- const d=document.createElement("div");
- d.className="box";
- const i=document.createElement("img");
- i.src=src;
- d.appendChild(i);
- grid.appendChild(d);
+ grid.innerHTML+=`<div class="box"><img src="${src}"></div>`;
 }
 
-printBtn.onclick=async ()=>{
+async function exportPDF(){
 
- const imgs=[...document.querySelectorAll("#grid img")];
+ const {jsPDF}=window.jspdf;
+ const pdf=new jsPDF("p","mm","a4");
 
- await Promise.all(imgs.map(i=>{
-   if(i.complete) return Promise.resolve();
-   return new Promise(r=>i.onload=r);
- }));
+ const canvas=await html2canvas(document.getElementById("report"),{scale:2});
+ const img=canvas.toDataURL("image/jpeg",.95);
 
- window.print();
-};
+ const w=210;
+ const h=canvas.height*w/canvas.width;
+
+ pdf.addImage(img,"JPEG",0,0,w,h);
+ pdf.save("report.pdf");
+}
 </script>
 
 </body>
