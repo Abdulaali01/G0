@@ -1,1 +1,203 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<title>تقرير الصور A4</title>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+<style>
+body{margin:0;background:#eee;font-family:Tahoma}
+
+.topbar{background:#111;color:#fff;padding:8px;display:flex;gap:10px}
+.topbar button{padding:6px 12px}
+
+.page{
+width:210mm;
+height:297mm;
+margin:10mm auto;
+background:#fff;
+border:1px solid #000;
+padding:10mm;
+}
+
+.grid{
+display:grid;
+grid-template-columns:repeat(3,1fr);
+gap:5mm;
+}
+
+.img-box{
+border:1px solid #000;
+height:60mm;
+position:relative;
+overflow:hidden;
+}
+
+.img-box img{
+width:100%;
+height:100%;
+object-fit:contain;
+}
+
+.num{
+position:absolute;
+top:2mm;
+right:2mm;
+background:#000;
+color:#fff;
+padding:2px 4px;
+font-size:12px;
+}
+
+.add{
+position:absolute;
+bottom:2mm;
+left:2mm;
+width:10mm;height:10mm;
+border-radius:50%;
+background:#2563eb;
+color:#fff;
+text-align:center;
+line-height:10mm;
+}
+
+.edit{
+position:absolute;
+bottom:2mm;
+right:2mm;
+background:#16a34a;
+color:#fff;
+padding:2mm 4mm;
+font-size:12px;
+}
+
+.note-editor{
+position:absolute;
+inset:0;
+background:#fff;
+display:none;
+flex-direction:column;
+padding:4mm;
+}
+
+.note-editor textarea{
+flex:1;
+resize:none;
+}
+
+.picker{
+position:absolute;
+bottom:14mm;
+left:2mm;
+background:#fff;
+border:1px solid #000;
+display:none;
+}
+
+.picker button{width:100%;border:none;padding:6px}
+
+input[type=file]{display:none}
+
+.gps{
+position:absolute;
+bottom:2px;
+right:2px;
+background:rgba(255,255,255,.8);
+font-size:11px;
+padding:2px 4px;
+}
+</style>
+</head>
+
+<body>
+
+<div class="topbar">
+<button onclick="printPDF()">PDF</button>
+<input id="gpsStatus" placeholder="الصق الإحداثيات">
+</div>
+
+<div class="page">
+<div class="grid" id="grid"></div>
+</div>
+
+<script>
+const grid=document.getElementById("grid");
+const notes={};
+
+for(let i=1;i<=12;i++){
+grid.innerHTML+=`
+<div class="img-box" id="box${i}">
+<div class="num">${i}</div>
+<div class="gps" id="gps${i}"></div>
+
+<div class="add" onclick="showPicker(${i})">+</div>
+<div class="edit" onclick="openEditor(${i})">ملاحظة</div>
+
+<div class="picker" id="picker${i}">
+<button onclick="openCam(${i})">📷 كاميرا</button>
+<button onclick="openGallery(${i})">🖼️ استديو</button>
+</div>
+
+<input id="cam${i}" type="file" accept="image/*" capture="environment" onchange="loadImg(${i},this)">
+<input id="gal${i}" type="file" accept="image/*" onchange="loadImg(${i},this)">
+
+<div class="note-editor" id="editor${i}">
+<textarea id="note${i}"></textarea>
+<button onclick="saveNote(${i})">حفظ</button>
+</div>
+</div>`;
+}
+
+function showPicker(i){
+document.getElementById("picker"+i).style.display="block";
+}
+
+function openCam(i){
+document.getElementById("cam"+i).click();
+}
+
+function openGallery(i){
+document.getElementById("gal"+i).click();
+}
+
+function loadImg(i,input){
+if(!input.files[0])return;
+
+const box=document.getElementById("box"+i);
+box.querySelectorAll("img").forEach(x=>x.remove());
+
+const img=document.createElement("img");
+img.src=URL.createObjectURL(input.files[0]);
+box.appendChild(img);
+
+document.getElementById("gps"+i).innerText=
+document.getElementById("gpsStatus").value;
+
+document.getElementById("picker"+i).style.display="none";
+}
+
+function openEditor(i){
+document.getElementById("editor"+i).style.display="flex";
+document.getElementById("note"+i).value=notes[i]||"";
+}
+
+function saveNote(i){
+notes[i]=document.getElementById("note"+i).value;
+document.getElementById("editor"+i).style.display="none";
+}
+
+async function printPDF(){
+const {jsPDF}=window.jspdf;
+const canvas=await html2canvas(document.querySelector(".page"),{scale:2});
+const img=canvas.toDataURL("image/jpeg",0.95);
+
+const pdf=new jsPDF("portrait","mm","a4");
+pdf.addImage(img,"JPEG",0,0,210,297);
+pdf.save("report_"+Date.now()+".pdf");
+}
+</script>
+
+</body>
+</html>
