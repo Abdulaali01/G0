@@ -13,7 +13,6 @@ body{margin:0;background:#eee;font-family:Tahoma}
 .topbar button{padding:6px 12px;cursor:pointer}
 
 .page{width:210mm;height:297mm;border:1px solid #000;padding:10mm;background:#fff;margin:10mm auto}
-
 .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:5mm}
 
 .img-box{border:1px solid #000;height:60mm;position:relative}
@@ -21,7 +20,6 @@ body{margin:0;background:#eee;font-family:Tahoma}
 .img-box.selected{outline:4px solid #22c55e}
 
 .num{position:absolute;top:2mm;right:2mm;background:#000;color:#fff;padding:2mm 3mm;display:none}
-
 .add{position:absolute;bottom:2mm;left:2mm;width:10mm;height:10mm;border-radius:50%;background:#2563eb;color:#fff;text-align:center;line-height:10mm;cursor:pointer}
 .edit{position:absolute;bottom:2mm;right:2mm;background:#16a34a;color:#fff;padding:2mm 4mm;font-size:12px;cursor:pointer}
 
@@ -88,7 +86,7 @@ if(box.classList.contains("selected"))selected.push(i);
 else selected=selected.filter(x=>x!==i);
 }
 
-/* ===== هنا الإضافة الوحيدة ===== */
+/* ===== تكبير الإحداثيات + التاريخ ===== */
 function loadImg(i,input){
 
 navigator.geolocation.getCurrentPosition(pos=>{
@@ -110,19 +108,24 @@ const ctx=c.getContext("2d");
 
 ctx.drawImage(img,0,0);
 
-ctx.fillStyle="rgba(0,0,0,.6)";
-ctx.fillRect(0,c.height-90,c.width,90);
+/* خلفية سوداء كبيرة */
+ctx.fillStyle="rgba(0,0,0,.7)";
+ctx.fillRect(0,c.height-140,c.width,140);
 
+/* خط كبير */
 ctx.fillStyle="#fff";
-ctx.font="24px Tahoma";
-ctx.fillText(`Lat: ${lat}`,20,c.height-60);
-ctx.fillText(`Lng: ${lng}`,20,c.height-30);
-ctx.fillText(stamp,c.width-380,c.height-30);
+ctx.font="bold 40px Tahoma";
+
+ctx.fillText(`Lat: ${lat}`,30,c.height-90);
+ctx.fillText(`Lng: ${lng}`,30,c.height-40);
+
+ctx.font="bold 36px Tahoma";
+ctx.fillText(stamp,c.width-520,c.height-40);
 
 const box=document.getElementById("box"+i);
 box.querySelectorAll("img").forEach(x=>x.remove());
 const final=document.createElement("img");
-final.src=c.toDataURL("image/jpeg",0.95);
+final.src=c.toDataURL("image/jpeg",0.98);
 box.appendChild(final);
 box.querySelector(".num").style.display="block";
 }
@@ -139,21 +142,29 @@ function openFile(i,n){document.querySelectorAll("#box"+i+" input")[n].click();d
 function openEditor(e,i){e.stopPropagation();editor=document.getElementById("editor"+i);editor.style.display="flex";note=document.getElementById("note"+i);note.value=notes[i]||"";}
 function saveNote(i){notes[i]=note=document.getElementById("note"+i).value;document.getElementById("editor"+i).style.display="none";}
 
-/* PDF نفس كودك */
+/* ===== PDF HD ===== */
 async function printPDF(){
 if(!selected.length){alert("لم يتم اختيار أي صورة");return;}
+
 document.querySelectorAll(".add,.edit").forEach(e=>e.style.display="none");
 
 const {jsPDF}=window.jspdf;
 const pdf=new jsPDF("p","mm","a4");
 
-const canvas=await html2canvas(document.querySelector(".page"),{scale:2});
-pdf.addImage(canvas.toDataURL("image/jpeg",0.95),"JPEG",0,0,210,297);
-pdf.save("report.pdf");
+/* رفع الجودة */
+const canvas=await html2canvas(document.querySelector(".page"),{
+scale:3,
+useCORS:true,
+backgroundColor:"#fff"
+});
+
+pdf.addImage(canvas.toDataURL("image/jpeg",1),"JPEG",0,0,210,297);
+pdf.save("report_HD.pdf");
 
 document.querySelectorAll(".add,.edit").forEach(e=>e.style.display="");
 selectMode=false;
 }
 </script>
+
 </body>
 </html>
