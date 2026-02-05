@@ -2,121 +2,158 @@
 <html lang="ar" dir="rtl">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-
-<title>📋 تقرير الصور مع الإحداثيات</title>
+<title>تقرير صور A4</title>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
 <style>
-body{font-family:Tahoma;background:#f4f6fb;padding:16px}
-.toolbar{display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap}
-button{padding:10px;border:none;border-radius:8px;font-weight:bold}
-.cam{background:#1a73e8;color:#fff}
-.gal{background:#0f9d58;color:#fff}
-.pdf{background:#000;color:#fff}
-.card{background:#fff;border-radius:12px;padding:12px}
-.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px}
-.box{border:1px solid #ddd;border-radius:8px;overflow:hidden}
-.box img{width:100%;height:200px;object-fit:cover}
-.head{font-size:14px;margin-bottom:8px;line-height:1.6}
+body{margin:0;background:#eee;font-family:Tahoma}
+.topbar{background:#111;color:#fff;padding:8px;display:flex;gap:10px}
+.topbar button{padding:6px 12px;cursor:pointer}
+
+.page{width:210mm;height:297mm;border:1px solid #000;padding:10mm;background:#fff;margin:10mm auto}
+
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:5mm}
+
+.img-box{border:1px solid #000;height:60mm;position:relative}
+.img-box img{width:100%;height:100%;object-fit:contain}
+.img-box.selected{outline:4px solid #22c55e}
+
+.num{position:absolute;top:2mm;right:2mm;background:#000;color:#fff;padding:2mm 3mm;display:none}
+
+.add{position:absolute;bottom:2mm;left:2mm;width:10mm;height:10mm;border-radius:50%;background:#2563eb;color:#fff;text-align:center;line-height:10mm;cursor:pointer}
+.edit{position:absolute;bottom:2mm;right:2mm;background:#16a34a;color:#fff;padding:2mm 4mm;font-size:12px;cursor:pointer}
+
+.note-editor{position:absolute;inset:0;background:#fff;display:none;flex-direction:column;padding:4mm}
+.note-editor textarea{flex:1;resize:none;font-size:14px}
+.note-editor button{margin-top:4mm}
+
+.picker{position:absolute;bottom:14mm;left:2mm;background:#fff;border:1px solid #000;display:none}
+.picker button{display:block;width:100%;border:none;padding:5px}
+
+input{display:none}
 </style>
 </head>
 
 <body>
 
-<div class="toolbar">
-<button class="cam" onclick="cam.click()">📷 كاميرا</button>
-<button class="gal" onclick="gal.click()">🖼️ معرض</button>
-<button class="pdf" onclick="exportPDF()">📄 PDF</button>
+<div class="topbar">
+<button onclick="enableSelect()">🔗 ربط التقرير</button>
+<button onclick="printPDF()">🖨️ طباعة التقرير</button>
 </div>
 
-<div class="card" id="report">
-
-<div class="head" id="info">بانتظار التقاط صورة...</div>
-
-<div class="grid" id="grid"></div>
-
-</div>
-
-<input id="cam" type="file" accept="image/*" capture hidden>
-<input id="gal" type="file" accept="image/*" hidden>
+<div class="page"><div class="grid" id="grid"></div></div>
 
 <script>
 const grid=document.getElementById("grid");
-const info=document.getElementById("info");
+let selectMode=false;
+let selected=[];
+const notes={};
 
-async function stamp(file){
+for(let i=1;i<=12;i++){
+grid.innerHTML+=`
+<div class="img-box" id="box${i}" onclick="toggle(${i})">
+<div class="num">${i}</div>
+<div class="add" onclick="openPicker(event,${i})">+</div>
+<div class="edit" onclick="openEditor(event,${i})">✏️ تحرير</div>
 
- return new Promise(r=>{
- navigator.geolocation.getCurrentPosition(p=>{
+<div class="note-editor" id="editor${i}">
+<textarea id="note${i}"></textarea>
+<button onclick="saveNote(${i})">💾 حفظ</button>
+</div>
 
- const img=new Image();
- img.src=URL.createObjectURL(file);
+<div class="picker" id="picker${i}">
+<button onclick="openFile(${i},0)">📷 كاميرا</button>
+<button onclick="openFile(${i},1)">🖼️ استديو</button>
+</div>
 
- img.onload=()=>{
-
- const c=document.createElement("canvas");
- c.width=img.width;
- c.height=img.height;
- const x=c.getContext("2d");
-
- x.drawImage(img,0,0);
-
- const d=new Date();
-
- const line1=`LAT: ${p.coords.latitude.toFixed(6)} , LNG: ${p.coords.longitude.toFixed(6)}`;
- const line2=`${d.toLocaleDateString()} ${d.toLocaleTimeString()}`;
-
- info.innerHTML=line1+"<br>"+line2;
-
- x.fillStyle="rgba(0,0,0,.65)";
- x.fillRect(0,c.height-130,c.width,130);
-
- x.fillStyle="#fff";
- x.font="bold 36px Tahoma";
- x.fillText(line1,20,c.height-80);
- x.font="32px Tahoma";
- x.fillText(line2,20,c.height-35);
-
- r(c.toDataURL("image/jpeg",.95));
- };
-
- });
- });
+<input type="file" accept="image/*" capture onchange="loadImg(${i},this)">
+<input type="file" accept="image/*" onchange="loadImg(${i},this)">
+</div>`;
 }
 
-cam.onchange=async e=>{
- if(!e.target.files[0])return;
- const src=await stamp(e.target.files[0]);
- add(src);
-};
-
-gal.onchange=e=>{
- if(!e.target.files[0])return;
- add(URL.createObjectURL(e.target.files[0]));
-};
-
-function add(src){
- grid.innerHTML+=`<div class="box"><img src="${src}"></div>`;
+function enableSelect(){
+selectMode=true;
+selected=[];
+document.querySelectorAll(".img-box").forEach(b=>b.classList.remove("selected"));
+alert("اختر الصور ثم اطبع التقرير");
 }
 
-async function exportPDF(){
+function toggle(i){
+if(!selectMode)return;
+const box=document.getElementById("box"+i);
+box.classList.toggle("selected");
+if(box.classList.contains("selected"))selected.push(i);
+else selected=selected.filter(x=>x!==i);
+}
 
- const {jsPDF}=window.jspdf;
- const pdf=new jsPDF("p","mm","a4");
+/* ===== هنا الإضافة الوحيدة ===== */
+function loadImg(i,input){
 
- const canvas=await html2canvas(document.getElementById("report"),{scale:2});
- const img=canvas.toDataURL("image/jpeg",.95);
+navigator.geolocation.getCurrentPosition(pos=>{
 
- const w=210;
- const h=canvas.height*w/canvas.width;
+const lat=pos.coords.latitude.toFixed(6);
+const lng=pos.coords.longitude.toFixed(6);
+const now=new Date();
+const stamp=`${now.toLocaleDateString()} ${now.toLocaleTimeString()}`;
 
- pdf.addImage(img,"JPEG",0,0,w,h);
- pdf.save("report.pdf");
+const reader=new FileReader();
+reader.onload=e=>{
+const img=new Image();
+img.onload=()=>{
+
+const c=document.createElement("canvas");
+c.width=img.width;
+c.height=img.height;
+const ctx=c.getContext("2d");
+
+ctx.drawImage(img,0,0);
+
+ctx.fillStyle="rgba(0,0,0,.6)";
+ctx.fillRect(0,c.height-90,c.width,90);
+
+ctx.fillStyle="#fff";
+ctx.font="24px Tahoma";
+ctx.fillText(`Lat: ${lat}`,20,c.height-60);
+ctx.fillText(`Lng: ${lng}`,20,c.height-30);
+ctx.fillText(stamp,c.width-380,c.height-30);
+
+const box=document.getElementById("box"+i);
+box.querySelectorAll("img").forEach(x=>x.remove());
+const final=document.createElement("img");
+final.src=c.toDataURL("image/jpeg",0.95);
+box.appendChild(final);
+box.querySelector(".num").style.display="block";
+}
+img.src=e.target.result;
+}
+reader.readAsDataURL(input.files[0]);
+
+});
+}
+
+function openPicker(e,i){e.stopPropagation();document.getElementById("picker"+i).style.display="block";}
+function openFile(i,n){document.querySelectorAll("#box"+i+" input")[n].click();document.getElementById("picker"+i).style.display="none";}
+
+function openEditor(e,i){e.stopPropagation();editor=document.getElementById("editor"+i);editor.style.display="flex";note=document.getElementById("note"+i);note.value=notes[i]||"";}
+function saveNote(i){notes[i]=note=document.getElementById("note"+i).value;document.getElementById("editor"+i).style.display="none";}
+
+/* PDF نفس كودك */
+async function printPDF(){
+if(!selected.length){alert("لم يتم اختيار أي صورة");return;}
+document.querySelectorAll(".add,.edit").forEach(e=>e.style.display="none");
+
+const {jsPDF}=window.jspdf;
+const pdf=new jsPDF("p","mm","a4");
+
+const canvas=await html2canvas(document.querySelector(".page"),{scale:2});
+pdf.addImage(canvas.toDataURL("image/jpeg",0.95),"JPEG",0,0,210,297);
+pdf.save("report.pdf");
+
+document.querySelectorAll(".add,.edit").forEach(e=>e.style.display="");
+selectMode=false;
 }
 </script>
-
 </body>
 </html>
