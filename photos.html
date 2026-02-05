@@ -36,7 +36,7 @@ body{padding:0}
 <div class="toolbar">
 <button class="cam" id="cam">📷 كاميرا</button>
 <button class="gal" id="gal">🖼️ معرض</button>
-<button class="print" id="print">🖨️ طباعة</button>
+<button class="print" id="print">🖨️ طباعة التقرير</button>
 <input id="note" placeholder="عنوان التقرير">
 </div>
 
@@ -117,10 +117,7 @@ galIn.onchange=async e=>{
 };
 
 printBtn.onclick=()=>{
- setTimeout(()=>{
- document.body.style.zoom="100%";
  window.print();
- },600);
 };
 </script>
 
