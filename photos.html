@@ -6,323 +6,123 @@
 <title>📋 تقرير الصور — ختم الإحداثيات والوقت</title>
 
 <style>
-  body{font-family:Tahoma,Arial,sans-serif;background:#fafafa;margin:0;padding:16px}
-  .wrap{max-width:980px;margin:auto}
-  h2{margin:0 0 12px}
-  .toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
-  button{padding:10px 12px;border:none;border-radius:10px;cursor:pointer;font-weight:700}
-  .btnCam{background:#1a73e8;color:#fff}
-  .btnGal{background:#0f9d58;color:#fff}
-  .btnPrint{background:#111;color:#fff}
-  .hint{font-size:13px;color:#444;margin-top:6px}
-  .card{background:#fff;border-radius:14px;padding:14px;box-shadow:0 6px 18px rgba(0,0,0,.08)}
-  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;margin-top:12px}
-  .imgBox{border:1px solid #e6e6e6;border-radius:12px;overflow:hidden;background:#fff}
-  .imgBox img{width:100%;height:220px;object-fit:cover;display:block}
-  .meta{padding:10px;font-size:13px;color:#333;border-top:1px solid #eee;line-height:1.6}
-  .badge{display:inline-block;padding:4px 8px;border-radius:999px;background:#f1f3f4;font-size:12px;margin-bottom:6px}
-  .small{font-size:12px;color:#666}
-  .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
-  input[type="text"]{padding:10px;border:1px solid #ddd;border-radius:10px;width:260px;max-width:100%}
-  @media print{
-    body{background:#fff;padding:0}
-    .toolbar,.hint,.noPrint{display:none !important}
-    .card{box-shadow:none;border-radius:0;padding:0}
-    .imgBox img{height:260px}
-  }
+body{font-family:Tahoma,Arial,sans-serif;background:#fafafa;margin:0;padding:16px}
+.wrap{max-width:1000px;margin:auto}
+h2{margin:0 0 12px}
+.toolbar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+button{padding:10px;border:none;border-radius:8px;font-weight:bold}
+.cam{background:#1a73e8;color:#fff}
+.gal{background:#0f9d58;color:#fff}
+.print{background:#000;color:#fff}
+.card{background:#fff;border-radius:12px;padding:12px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px}
+.imgBox{border:1px solid #ccc;border-radius:8px;overflow:hidden}
+.imgBox img{width:100%;height:200px;object-fit:cover}
+.meta{padding:6px;font-size:13px}
+input{padding:8px;border-radius:6px;border:1px solid #ccc}
+
+@media print{
+.toolbar,input{display:none}
+body{padding:0}
+}
 </style>
 </head>
 
 <body>
+
 <div class="wrap">
-  <h2>📌 تقرير الصور — ختم الإحداثيات + التاريخ + الوقت داخل الصورة</h2>
+<h2>📋 تقرير الصور</h2>
 
-  <div class="toolbar">
-    <button class="btnCam" id="btnCamera">📷 إرفاق من الكاميرا (مع الختم)</button>
-    <button class="btnGal" id="btnGallery">🖼️ إرفاق من المعرض</button>
-    <button class="btnPrint" id="btnPrint">🖨️ طباعة التقرير</button>
-
-    <div class="row noPrint">
-      <input id="noteGlobal" type="text" placeholder="ملاحظة عامة (اختياري)" />
-      <span class="small" id="gpsStatus">GPS: غير مفعل</span>
-    </div>
-  </div>
-
-  <div class="hint">
-    ✅ صور الكاميرا سيتم تحويلها تلقائيًا لصورة “مختومة” داخلها: <b>Latitude / Longitude + Date + Time</b> بشكل واضح. <br>
-    ⚠️ لازم تسمح للموقع (GPS) من المتصفح عشان يطلع الختم بالإحداثيات.
-  </div>
-
-  <div class="card" id="report">
-    <div class="row" style="justify-content:space-between;align-items:flex-start">
-      <div>
-        <div class="badge">عنوان التقرير</div>
-        <div id="reportTitle" style="font-size:18px;font-weight:800">تقرير الصور</div>
-        <div class="small" id="reportDate"></div>
-      </div>
-      <div class="small" style="text-align:left;direction:ltr">
-        <div><b>آخر GPS:</b> <span id="lastGps">—</span></div>
-        <div><b>عدد الصور:</b> <span id="countImgs">0</span></div>
-      </div>
-    </div>
-
-    <div class="grid" id="imgsGrid"></div>
-  </div>
+<div class="toolbar">
+<button class="cam" id="cam">📷 كاميرا</button>
+<button class="gal" id="gal">🖼️ معرض</button>
+<button class="print" id="print">🖨️ طباعة</button>
+<input id="note" placeholder="عنوان التقرير">
 </div>
 
-<!-- مخفي -->
-<input id="inCam" type="file" accept="image/*" capture="environment" style="display:none" />
-<input id="inGal" type="file" accept="image/*" style="display:none" />
+<div class="card" id="report">
+<h3 id="title">تقرير الصور</h3>
+<div id="gps"></div>
+<div class="grid" id="grid"></div>
+</div>
+
+<input type="file" id="camIn" accept="image/*" capture="environment" hidden>
+<input type="file" id="galIn" accept="image/*" hidden>
 
 <script>
-/* ========= إعدادات الختم ========= */
-const STAMP = {
-  // حجم خط واضح على الجوال
-  fontBold: "bold 42px Tahoma",
-  font: "36px Tahoma",
-  // سماكة إطار النص
-  strokeWidth: 6,
-  // مسافة داخلية للصندوق
-  pad: 24,
-  // ارتفاع صندوق الختم كنسبة من الصورة (تقريب)
-  boxH: 160,
-  // شفافية خلفية الختم
-  boxAlpha: 0.55,
-  // مكان الختم: "bottom" أو "top"
-  position: "bottom",
-  // صيغة إحداثيات
-  digits: 6
+const cam=document.getElementById("cam");
+const gal=document.getElementById("gal");
+const printBtn=document.getElementById("print");
+const camIn=document.getElementById("camIn");
+const galIn=document.getElementById("galIn");
+const grid=document.getElementById("grid");
+const gpsTxt=document.getElementById("gps");
+const note=document.getElementById("note");
+const title=document.getElementById("title");
+
+note.oninput=()=>title.innerText=note.value||"تقرير الصور";
+
+function gps(){
+ return new Promise(r=>{
+ navigator.geolocation.getCurrentPosition(p=>{
+ r(p.coords);
+ gpsTxt.innerText=`GPS: ${p.coords.latitude.toFixed(6)}, ${p.coords.longitude.toFixed(6)}`
+ },()=>r(null));
+ });
+}
+
+async function stamp(file){
+ const pos=await gps();
+ const img=new Image();
+ img.src=URL.createObjectURL(file);
+ await img.decode();
+
+ const c=document.createElement("canvas");
+ c.width=img.width;
+ c.height=img.height;
+ const x=c.getContext("2d");
+ x.drawImage(img,0,0);
+
+ const d=new Date();
+ const txt=`${pos?pos.latitude.toFixed(6):"--"},${pos?pos.longitude.toFixed(6):"--"} | ${d.toLocaleDateString()} ${d.toLocaleTimeString()}`;
+
+ x.fillStyle="rgba(0,0,0,.6)";
+ x.fillRect(0,c.height-100,c.width,100);
+
+ x.fillStyle="#fff";
+ x.font="bold 36px Tahoma";
+ x.fillText(txt,20,c.height-40);
+
+ return c.toDataURL("image/jpeg",.95);
+}
+
+function add(src){
+ const b=document.createElement("div");
+ b.className="imgBox";
+ b.innerHTML=`<img src="${src}"><div class="meta">${new Date().toLocaleString()}</div>`;
+ grid.prepend(b);
+}
+
+cam.onclick=()=>camIn.click();
+gal.onclick=()=>galIn.click();
+
+camIn.onchange=async e=>{
+ if(!e.target.files[0])return;
+ add(await stamp(e.target.files[0]));
 };
 
-const btnCamera = document.getElementById("btnCamera");
-const btnGallery = document.getElementById("btnGallery");
-const btnPrint = document.getElementById("btnPrint");
-const inCam = document.getElementById("inCam");
-const inGal = document.getElementById("inGal");
-const imgsGrid = document.getElementById("imgsGrid");
-const countImgs = document.getElementById("countImgs");
-const reportDate = document.getElementById("reportDate");
-const reportTitle = document.getElementById("reportTitle");
-const noteGlobal = document.getElementById("noteGlobal");
-const gpsStatus = document.getElementById("gpsStatus");
-const lastGps = document.getElementById("lastGps");
+galIn.onchange=async e=>{
+ if(!e.target.files[0])return;
+ add(URL.createObjectURL(e.target.files[0]));
+};
 
-let images = []; // {src, stamped, lat, lng, whenISO}
-
-/* ========= أدوات ========= */
-function nowTextAR(){
-  const d = new Date();
-  const date = d.toLocaleDateString("ar-SA", { year:"numeric", month:"2-digit", day:"2-digit" });
-  const time = d.toLocaleTimeString("ar-SA", { hour:"2-digit", minute:"2-digit", second:"2-digit" });
-  return {date, time};
-}
-
-function setHeader(){
-  const t = nowTextAR();
-  reportDate.textContent = `تاريخ التقرير: ${t.date} — الوقت: ${t.time}`;
-  const g = noteGlobal.value.trim();
-  reportTitle.textContent = g ? `تقرير الصور — ${g}` : "تقرير الصور";
-}
-
-noteGlobal.addEventListener("input", setHeader);
-setHeader();
-
-/* ========= GPS ========= */
-function getGPS(){
-  return new Promise((resolve) => {
-    if(!navigator.geolocation){
-      gpsStatus.textContent = "GPS: غير مدعوم";
-      return resolve(null);
-    }
-    gpsStatus.textContent = "GPS: جاري القراءة...";
-    navigator.geolocation.getCurrentPosition(
-      (pos)=>{
-        const lat = pos.coords.latitude;
-        const lng = pos.coords.longitude;
-        gpsStatus.textContent = "GPS: شغال ✅";
-        lastGps.textContent = `${lat.toFixed(STAMP.digits)}, ${lng.toFixed(STAMP.digits)}`;
-        resolve({lat,lng});
-      },
-      (err)=>{
-        gpsStatus.textContent = "GPS: مرفوض/غير متاح";
-        resolve(null);
-      },
-      { enableHighAccuracy:true, timeout:12000, maximumAge:0 }
-    );
-  });
-}
-
-/* ========= تحويل ملف إلى صورة ========= */
-function fileToImage(file){
-  return new Promise((resolve, reject)=>{
-    const url = URL.createObjectURL(file);
-    const img = new Image();
-    img.onload = ()=> { URL.revokeObjectURL(url); resolve(img); };
-    img.onerror = reject;
-    img.src = url;
-  });
-}
-
-/* ========= ختم الصورة على Canvas ========= */
-async function stampImageFromCamera(file){
-  // 1) اقرأ GPS + وقت
-  const gps = await getGPS();
-  const when = new Date();
-  const whenISO = when.toISOString();
-
-  const t = {
-    date: when.toLocaleDateString("ar-SA", { year:"numeric", month:"2-digit", day:"2-digit" }),
-    time: when.toLocaleTimeString("ar-SA", { hour:"2-digit", minute:"2-digit", second:"2-digit" })
-  };
-
-  // 2) حمّل الصورة
-  const img = await fileToImage(file);
-
-  // 3) Canvas بنفس أبعاد الصورة الأصلية (يحافظ على الجودة)
-  const canvas = document.createElement("canvas");
-  const ctx = canvas.getContext("2d");
-  canvas.width = img.naturalWidth;
-  canvas.height = img.naturalHeight;
-
-  // 4) ارسم الصورة
-  ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-
-  // 5) جهّز نص الختم
-  const latText = gps ? gps.lat.toFixed(STAMP.digits) : "—";
-  const lngText = gps ? gps.lng.toFixed(STAMP.digits) : "—";
-
-  const line1 = `LAT: ${latText}   LNG: ${lngText}`;
-  const line2 = `DATE: ${t.date}   TIME: ${t.time}`;
-
-  // 6) احسب مكان الصندوق
-  const pad = STAMP.pad;
-  const boxH = Math.max(STAMP.boxH, Math.round(canvas.height * 0.11));
-  const yBox = (STAMP.position === "top") ? 0 : (canvas.height - boxH);
-
-  // 7) خلفية شبه شفافة
-  ctx.save();
-  ctx.fillStyle = `rgba(0,0,0,${STAMP.boxAlpha})`;
-  ctx.fillRect(0, yBox, canvas.width, boxH);
-
-  // 8) نص واضح (Stroke + Fill)
-  ctx.textBaseline = "middle";
-  ctx.direction = "ltr";
-
-  // قياس حجم الخط مناسب للصورة الكبيرة/الصغيرة
-  const scale = Math.max(0.7, Math.min(1.3, canvas.width / 1600));
-  const fontBoldPx = Math.round(42 * scale);
-  const fontPx = Math.round(36 * scale);
-  ctx.font = `bold ${fontBoldPx}px Tahoma`;
-  const strokeW = Math.max(3, Math.round(STAMP.strokeWidth * scale));
-
-  // مكان النص
-  const x = pad;
-  const y1 = yBox + Math.round(boxH * 0.40);
-  const y2 = yBox + Math.round(boxH * 0.72);
-
-  // line1
-  ctx.lineWidth = strokeW;
-  ctx.strokeStyle = "rgba(0,0,0,0.95)";
-  ctx.fillStyle = "#ffffff";
-  ctx.strokeText(line1, x, y1);
-  ctx.fillText(line1, x, y1);
-
-  // line2
-  ctx.font = `${fontPx}px Tahoma`;
-  ctx.strokeText(line2, x, y2);
-  ctx.fillText(line2, x, y2);
-
-  ctx.restore();
-
-  // 9) ارجع DataURL
-  const dataURL = canvas.toDataURL("image/jpeg", 0.95);
-  return {
-    src: dataURL,
-    stamped: true,
-    lat: gps ? gps.lat : null,
-    lng: gps ? gps.lng : null,
-    whenISO
-  };
-}
-
-/* ========= إضافة صورة (معاينة في التقرير) ========= */
-function addToReport(item){
-  images.push(item);
-
-  const wrap = document.createElement("div");
-  wrap.className = "imgBox";
-
-  const im = document.createElement("img");
-  im.src = item.src;
-
-  const meta = document.createElement("div");
-  meta.className = "meta";
-
-  const dt = new Date(item.whenISO || Date.now());
-  const d = dt.toLocaleDateString("ar-SA", { year:"numeric", month:"2-digit", day:"2-digit" });
-  const tm = dt.toLocaleTimeString("ar-SA", { hour:"2-digit", minute:"2-digit", second:"2-digit" });
-
-  meta.innerHTML = `
-    <div class="badge">${item.stamped ? "✅ مختومة (كاميرا)" : "🖼️ صورة"}</div>
-    <div><b>التاريخ:</b> ${d}</div>
-    <div><b>الوقت:</b> ${tm}</div>
-    <div style="direction:ltr;text-align:left"><b>GPS:</b> ${item.lat ? item.lat.toFixed(6) : "—"}, ${item.lng ? item.lng.toFixed(6) : "—"}</div>
-  `;
-
-  wrap.appendChild(im);
-  wrap.appendChild(meta);
-  imgsGrid.prepend(wrap);
-
-  countImgs.textContent = images.length;
-}
-
-/* ========= أزرار ========= */
-btnCamera.addEventListener("click", ()=>{
-  inCam.value = "";
-  inCam.click();
-});
-
-btnGallery.addEventListener("click", ()=>{
-  inGal.value = "";
-  inGal.click();
-});
-
-inCam.addEventListener("change", async (e)=>{
-  const file = e.target.files && e.target.files[0];
-  if(!file) return;
-
-  try{
-    const stampedItem = await stampImageFromCamera(file);
-    addToReport(stampedItem);
-  }catch(err){
-    alert("صار خطأ في معالجة صورة الكاميرا.");
-  }
-});
-
-inGal.addEventListener("change", async (e)=>{
-  const file = e.target.files && e.target.files[0];
-  if(!file) return;
-
-  // المعرض: نعرضها مثل ما هي (بدون ختم)
-  try{
-    const img = await fileToImage(file);
-    const canvas = document.createElement("canvas");
-    const ctx = canvas.getContext("2d");
-    canvas.width = img.naturalWidth;
-    canvas.height = img.naturalHeight;
-    ctx.drawImage(img,0,0,canvas.width,canvas.height);
-
-    const dataURL = canvas.toDataURL("image/jpeg", 0.95);
-    addToReport({src:dataURL, stamped:false, lat:null, lng:null, whenISO:new Date().toISOString()});
-  }catch(err){
-    alert("صار خطأ في قراءة صورة المعرض.");
-  }
-});
-
-btnPrint.addEventListener("click", ()=>{
-  setHeader();
-  window.print();
-});
+printBtn.onclick=()=>{
+ setTimeout(()=>{
+ document.body.style.zoom="100%";
+ window.print();
+ },600);
+};
 </script>
+
 </body>
 </html>
