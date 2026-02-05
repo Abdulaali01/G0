@@ -86,7 +86,7 @@ if(box.classList.contains("selected"))selected.push(i);
 else selected=selected.filter(x=>x!==i);
 }
 
-/* ===== تكبير الإحداثيات + التاريخ ===== */
+/* ===== تكبير الإحداثيات داخل الصورة فقط ===== */
 function loadImg(i,input){
 
 navigator.geolocation.getCurrentPosition(pos=>{
@@ -108,19 +108,19 @@ const ctx=c.getContext("2d");
 
 ctx.drawImage(img,0,0);
 
-/* خلفية سوداء كبيرة */
-ctx.fillStyle="rgba(0,0,0,.7)";
-ctx.fillRect(0,c.height-140,c.width,140);
+/* خلفية */
+ctx.fillStyle="rgba(0,0,0,.75)";
+ctx.fillRect(0,c.height-180,c.width,180);
 
-/* خط كبير */
+/* خط HD كبير */
 ctx.fillStyle="#fff";
-ctx.font="bold 40px Tahoma";
+ctx.font="bold 52px Tahoma";
 
-ctx.fillText(`Lat: ${lat}`,30,c.height-90);
-ctx.fillText(`Lng: ${lng}`,30,c.height-40);
+ctx.fillText(`LAT: ${lat}`,40,c.height-110);
+ctx.fillText(`LNG: ${lng}`,40,c.height-50);
 
-ctx.font="bold 36px Tahoma";
-ctx.fillText(stamp,c.width-520,c.height-40);
+ctx.font="bold 46px Tahoma";
+ctx.fillText(stamp,c.width-650,c.height-50);
 
 const box=document.getElementById("box"+i);
 box.querySelectorAll("img").forEach(x=>x.remove());
@@ -142,7 +142,7 @@ function openFile(i,n){document.querySelectorAll("#box"+i+" input")[n].click();d
 function openEditor(e,i){e.stopPropagation();editor=document.getElementById("editor"+i);editor.style.display="flex";note=document.getElementById("note"+i);note.value=notes[i]||"";}
 function saveNote(i){notes[i]=note=document.getElementById("note"+i).value;document.getElementById("editor"+i).style.display="none";}
 
-/* ===== PDF HD ===== */
+/* PDF كما هو */
 async function printPDF(){
 if(!selected.length){alert("لم يتم اختيار أي صورة");return;}
 
@@ -151,7 +151,6 @@ document.querySelectorAll(".add,.edit").forEach(e=>e.style.display="none");
 const {jsPDF}=window.jspdf;
 const pdf=new jsPDF("p","mm","a4");
 
-/* رفع الجودة */
 const canvas=await html2canvas(document.querySelector(".page"),{
 scale:3,
 useCORS:true,
@@ -159,7 +158,7 @@ backgroundColor:"#fff"
 });
 
 pdf.addImage(canvas.toDataURL("image/jpeg",1),"JPEG",0,0,210,297);
-pdf.save("report_HD.pdf");
+pdf.save("report.pdf");
 
 document.querySelectorAll(".add,.edit").forEach(e=>e.style.display="");
 selectMode=false;
