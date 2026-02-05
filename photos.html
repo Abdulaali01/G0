@@ -1,124 +1,92 @@
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>📋 تقرير الصور — ختم الإحداثيات والوقت</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<title>📋 تقرير الصور</title>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
 <style>
-body{font-family:Tahoma,Arial,sans-serif;background:#fafafa;margin:0;padding:16px}
-.wrap{max-width:1000px;margin:auto}
-h2{margin:0 0 12px}
-.toolbar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+body{font-family:Tahoma;background:#f4f6fb;padding:16px}
+.toolbar{display:flex;gap:8px;margin-bottom:10px}
 button{padding:10px;border:none;border-radius:8px;font-weight:bold}
 .cam{background:#1a73e8;color:#fff}
 .gal{background:#0f9d58;color:#fff}
-.print{background:#000;color:#fff}
-.card{background:#fff;border-radius:12px;padding:12px}
-.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px}
-.imgBox{border:1px solid #ccc;border-radius:8px;overflow:hidden}
-.imgBox img{width:100%;height:200px;object-fit:cover}
-.meta{padding:6px;font-size:13px}
-input{padding:8px;border-radius:6px;border:1px solid #ccc}
-
-@media print{
-.toolbar,input{display:none}
-body{padding:0}
-}
+.pdf{background:#000;color:#fff}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px}
+.box{background:#fff;border-radius:10px;overflow:hidden}
+.box img{width:100%;height:200px;object-fit:cover}
 </style>
 </head>
 
 <body>
 
-<div class="wrap">
-<h2>📋 تقرير الصور</h2>
-
 <div class="toolbar">
-<button class="cam" id="cam">📷 كاميرا</button>
-<button class="gal" id="gal">🖼️ معرض</button>
-<button class="print" id="print">🖨️ طباعة التقرير</button>
-<input id="note" placeholder="عنوان التقرير">
+<button class="cam" onclick="cam.click()">📷 كاميرا</button>
+<button class="gal" onclick="gal.click()">🖼️ معرض</button>
+<button class="pdf" onclick="exportPDF()">📄 PDF</button>
 </div>
 
-<div class="card" id="report">
-<h3 id="title">تقرير الصور</h3>
-<div id="gps"></div>
+<div id="report">
 <div class="grid" id="grid"></div>
 </div>
 
-<input type="file" id="camIn" accept="image/*" capture="environment" hidden>
-<input type="file" id="galIn" accept="image/*" hidden>
+<input id="cam" type="file" accept="image/*" capture hidden>
+<input id="gal" type="file" accept="image/*" hidden>
 
 <script>
-const cam=document.getElementById("cam");
-const gal=document.getElementById("gal");
-const printBtn=document.getElementById("print");
-const camIn=document.getElementById("camIn");
-const galIn=document.getElementById("galIn");
 const grid=document.getElementById("grid");
-const gpsTxt=document.getElementById("gps");
-const note=document.getElementById("note");
-const title=document.getElementById("title");
 
-note.oninput=()=>title.innerText=note.value||"تقرير الصور";
-
-function gps(){
+async function stamp(file){
  return new Promise(r=>{
  navigator.geolocation.getCurrentPosition(p=>{
- r(p.coords);
- gpsTxt.innerText=`GPS: ${p.coords.latitude.toFixed(6)}, ${p.coords.longitude.toFixed(6)}`
- },()=>r(null));
+ const img=new Image();
+ img.src=URL.createObjectURL(file);
+ img.onload=()=>{
+ const c=document.createElement("canvas");
+ c.width=img.width;c.height=img.height;
+ const x=c.getContext("2d");
+ x.drawImage(img,0,0);
+ const d=new Date();
+ const t=`${p.coords.latitude.toFixed(6)},${p.coords.longitude.toFixed(6)} | ${d.toLocaleString()}`;
+ x.fillStyle="rgba(0,0,0,.6)";
+ x.fillRect(0,c.height-90,c.width,90);
+ x.fillStyle="#fff";
+ x.font="bold 32px Tahoma";
+ x.fillText(t,20,c.height-40);
+ r(c.toDataURL("image/jpeg",.95));
+ };
+ });
  });
 }
 
-async function stamp(file){
- const pos=await gps();
- const img=new Image();
- img.src=URL.createObjectURL(file);
- await img.decode();
-
- const c=document.createElement("canvas");
- c.width=img.width;
- c.height=img.height;
- const x=c.getContext("2d");
- x.drawImage(img,0,0);
-
- const d=new Date();
- const txt=`${pos?pos.latitude.toFixed(6):"--"},${pos?pos.longitude.toFixed(6):"--"} | ${d.toLocaleDateString()} ${d.toLocaleTimeString()}`;
-
- x.fillStyle="rgba(0,0,0,.6)";
- x.fillRect(0,c.height-100,c.width,100);
-
- x.fillStyle="#fff";
- x.font="bold 36px Tahoma";
- x.fillText(txt,20,c.height-40);
-
- return c.toDataURL("image/jpeg",.95);
-}
-
-function add(src){
- const b=document.createElement("div");
- b.className="imgBox";
- b.innerHTML=`<img src="${src}"><div class="meta">${new Date().toLocaleString()}</div>`;
- grid.prepend(b);
-}
-
-cam.onclick=()=>camIn.click();
-gal.onclick=()=>galIn.click();
-
-camIn.onchange=async e=>{
+cam.onchange=async e=>{
  if(!e.target.files[0])return;
- add(await stamp(e.target.files[0]));
+ const src=await stamp(e.target.files[0]);
+ add(src);
 };
 
-galIn.onchange=async e=>{
+gal.onchange=e=>{
  if(!e.target.files[0])return;
  add(URL.createObjectURL(e.target.files[0]));
 };
 
-printBtn.onclick=()=>{
- window.print();
-};
+function add(src){
+ grid.innerHTML+=`<div class="box"><img src="${src}"></div>`;
+}
+
+async function exportPDF(){
+ const {jsPDF}=window.jspdf;
+ const pdf=new jsPDF("p","mm","a4");
+ const canvas=await html2canvas(document.getElementById("report"),{scale:2});
+ const img=canvas.toDataURL("image/jpeg",.95);
+ const w=210,h=canvas.height*w/canvas.width;
+ pdf.addImage(img,"JPEG",0,0,w,h);
+ pdf.save("report.pdf");
+}
 </script>
 
 </body>
