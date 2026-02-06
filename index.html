@@ -54,7 +54,7 @@ const grid=document.getElementById("grid");
 let selectMode=false;
 let selected=[];
 const notes={};
-const meta={}; // ← تخزين الإحداثيات + الوقت
+const meta={};
 
 for(let i=1;i<=12;i++){
 grid.innerHTML+=`
@@ -111,9 +111,7 @@ date:d.toLocaleDateString(),
 time:d.toLocaleTimeString()
 };
 });
-}else{
-meta[i]=null;
-}
+}else meta[i]=null;
 }
 
 function openPicker(e,i){
@@ -149,43 +147,34 @@ const dd=String(now.getDate()).padStart(2,"0");
 const mm=String(now.getMonth()+1).padStart(2,"0");
 const yyyy=now.getFullYear();
 
-const titleDiv=document.createElement("div");
-titleDiv.style.width="180mm";
-titleDiv.style.padding="6mm";
-titleDiv.style.textAlign="center";
-titleDiv.style.fontSize="20px";
-titleDiv.style.fontWeight="bold";
-titleDiv.textContent=`تقرير الصور ليوم: ${dd}/${mm}/${yyyy}`;
-document.body.appendChild(titleDiv);
-
-const titleCanvas=await html2canvas(titleDiv,{scale:2});
-const titleImg=titleCanvas.toDataURL("image/jpeg");
-document.body.removeChild(titleDiv);
-
-function drawTitle(){pdf.addImage(titleImg,"JPEG",15,10,180,20);}
-drawTitle();
-
-let y=35;
+let y=20;
 
 for(let i of selected){
-if(y+80>280){pdf.addPage();drawTitle();y=35;}
+
+if(y+90>280){pdf.addPage();y=20;}
 
 const box=document.getElementById("box"+i);
 const imgCanvas=await html2canvas(box,{scale:2});
 const imgData=imgCanvas.toDataURL("image/jpeg");
 
-pdf.addImage(imgData,"JPEG",15,y,60,50);
+pdf.addImage(imgData,"JPEG",15,y,60,45);
 
-let info="";
+// بطاقة البيانات
+let cardY=y+47;
+pdf.roundedRect(15,cardY,60,22,2,2);
+
 if(meta[i]){
-info=`📍 ${meta[i].lat}, ${meta[i].lng}\n📅 ${meta[i].date}\n⏱️ ${meta[i].time}`;
+pdf.setFontSize(9);
+pdf.text(`📍 ${meta[i].lat}, ${meta[i].lng}`,17,cardY+6,{maxWidth:56});
+pdf.text(`📅 ${meta[i].date}`,17,cardY+13);
+pdf.text(`⏱️ ${meta[i].time}`,17,cardY+19);
 }
-
-pdf.text(info,17,y+55);
 
 const temp=document.createElement("div");
 temp.style.width="90mm";
 temp.style.padding="5mm";
+temp.style.fontFamily="Tahoma";
+temp.style.fontSize="14px";
 temp.textContent=notes[i]||"";
 document.body.appendChild(temp);
 
@@ -193,7 +182,7 @@ const noteCanvas=await html2canvas(temp,{scale:2});
 const noteImg=noteCanvas.toDataURL("image/jpeg");
 document.body.removeChild(temp);
 
-pdf.addImage(noteImg,"JPEG",85,y,100,50);
+pdf.addImage(noteImg,"JPEG",85,y,100,60);
 
 y+=75;
 }
