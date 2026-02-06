@@ -163,7 +163,7 @@ if(y+90>280){pdf.addPage();drawTitle();y=35;}
 const box=document.getElementById("box"+i);
 const imgCanvas=await html2canvas(box,{scale:2});
 const imgData=imgCanvas.toDataURL("image/jpeg");
-pdf.addImage(imgData,"JPEG",15,y,60,45);
+pdf.addImage(imgData,"JPEG",15,y,45,60);
 
 /* ==== بطاقة البيانات مع عكس الإحداثيات ==== */
 const m=meta[i]||{};
@@ -171,7 +171,7 @@ const lng = m.lng || "-";
 const lat = m.lat || "-";
 
 const card=document.createElement("div");
-card.style.width="60mm";
+card.style.width="45mm";
 card.style.height="22mm";
 card.style.padding="4mm";
 card.style.borderRadius="8px";
@@ -188,7 +188,7 @@ const cardCanvas=await html2canvas(card,{scale:2});
 const cardImg=cardCanvas.toDataURL("image/jpeg");
 document.body.removeChild(card);
 
-pdf.addImage(cardImg,"JPEG",15,y+47,60,22);
+pdf.addImage(cardImg,"JPEG",15,y+62,45,22);
 
 /* الملاحظات */
 const temp=document.createElement("div");
