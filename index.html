@@ -188,7 +188,7 @@ const cardCanvas=await html2canvas(card,{scale:2});
 const cardImg=cardCanvas.toDataURL("image/jpeg");
 document.body.removeChild(card);
 
-pdf.addImage(cardImg,"JPEG",15,y+77,45,22);
+pdf.addImage(cardImg,"JPEG",15,y+77,70,22);
 
 /* الملاحظات */
 const temp=document.createElement("div");
