@@ -163,7 +163,7 @@ if(y+90>280){pdf.addPage();drawTitle();y=35;}
 const box=document.getElementById("box"+i);
 const imgCanvas=await html2canvas(box,{scale:2});
 const imgData=imgCanvas.toDataURL("image/jpeg");
-pdf.addImage(imgData,"JPEG",15,y,45,75);
+pdf.addImage(imgData,"JPEG",15,y,70,75);
 
 /* ==== بطاقة البيانات مع عكس الإحداثيات ==== */
 const m=meta[i]||{};
