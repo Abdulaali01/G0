@@ -3,49 +3,182 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>خريطة اختبار</title>
+
+<title>استخراج الشوارع والأحياء - Google</title>
+
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 
 <style>
-body{
-margin:0;
-font-family:tahoma;
-background:#f5f7fb;
+body{margin:0;font-family:tahoma;background:#f5f7fb}
+.topBar{
+position:absolute;
+top:10px;
+left:50%;
+transform:translateX(-50%);
+background:#fff;
+padding:10px;
+border-radius:10px;
+z-index:10;
+box-shadow:0 4px 10px rgba(0,0,0,.2)
 }
-#map{
-height:100vh;
+#map{height:100vh;width:100%}
+.table{
+position:absolute;
+bottom:0;
 width:100%;
+max-height:250px;
+overflow:auto;
+background:#fff;
 }
+table{width:100%;border-collapse:collapse;font-size:12px}
+td,th{padding:6px;border:1px solid #ddd;text-align:center}
 </style>
 </head>
 
 <body>
 
+<div class="topBar">
+<input type="file" id="fileInput">
+<button onclick="loadExcel()">رفع</button>
+<button onclick="startExtract()">استخراج</button>
+</div>
+
 <div id="map"></div>
+
+<div class="table">
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>خط العرض</th>
+<th>خط الطول</th>
+<th>الحي</th>
+<th>الشارع</th>
+</tr>
+</thead>
+<tbody id="result"></tbody>
+</table>
+</div>
 
 <script>
 
-// إنشاء الخريطة
-function initMap(){
-    const map = new google.maps.Map(document.getElementById("map"),{
-        center:{lat:21.3891,lng:39.8579}, // مكة
-        zoom:10,
-        mapTypeId:"hybrid",
-        gestureHandling:"greedy"
-    });
+let map;
+let data=[];
 
-    // مثال نقطة
-    new google.maps.Marker({
-        position:{lat:21.3891,lng:39.8579},
-        map:map,
-        title:"موقع تجريبي"
-    });
+function initMap(){
+map=new google.maps.Map(document.getElementById("map"),{
+center:{lat:21.3891,lng:39.8579},
+zoom:10
+});
+}
+
+// قراءة Excel
+function loadExcel(){
+
+const file=document.getElementById("fileInput").files[0];
+if(!file){alert("اختر ملف");return;}
+
+const reader=new FileReader();
+
+reader.onload=function(e){
+
+const wb=XLSX.read(new Uint8Array(e.target.result),{type:'array'});
+const json=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]]);
+
+data=json.map((r,i)=>({
+id:i+1,
+lat:parseFloat(r.lat || r["خط العرض"]),
+lng:parseFloat(r.lng || r["خط الطول"]),
+street:"",
+district:""
+}));
+
+alert("تم رفع البيانات");
+
+};
+
+reader.readAsArrayBuffer(file);
+
+}
+
+// استخراج من Google
+async function startExtract(){
+
+for(let i=0;i<data.length;i++){
+
+let r=data[i];
+
+const url=`https://maps.googleapis.com/maps/api/geocode/json?latlng=${r.lat},${r.lng}&key=AIzaSyCKAdhnhp11pzOQXn8rQxcA-dB5HpSZx0Y`;
+
+try{
+
+let res=await fetch(url);
+let json=await res.json();
+
+if(json.results.length){
+
+let comp=json.results[0].address_components;
+
+comp.forEach(c=>{
+
+if(c.types.includes("route")){
+r.street=c.long_name;
+}
+
+if(c.types.includes("sublocality") || c.types.includes("locality")){
+r.district=c.long_name;
+}
+
+});
+
+}
+
+}catch(e){}
+
+drawRow(r);
+addMarker(r);
+
+await new Promise(r=>setTimeout(r,300)); // لا تضغط API
+
+}
+
+alert("تم الانتهاء");
+
+}
+
+// عرض جدول
+function drawRow(r){
+
+const tr=document.createElement("tr");
+
+tr.innerHTML=`
+<td>${r.id}</td>
+<td>${r.lat}</td>
+<td>${r.lng}</td>
+<td>${r.district}</td>
+<td>${r.street}</td>
+`;
+
+document.getElementById("result").appendChild(tr);
+
+}
+
+// إضافة نقطة
+function addMarker(r){
+
+new google.maps.Marker({
+position:{lat:r.lat,lng:r.lng},
+map:map,
+title:r.street
+});
+
 }
 
 </script>
 
-<!-- 🔥 المفتاح الشغال -->
+<!-- المفتاح الشغال -->
 <script async defer
-src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCKAdhnhp11pzOQXn8rQxcA-dB5HpSZx0Y&callback=initMap&language=ar&region=SA">
+src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCKAdhnhp11pzOQXn8rQxcA-dB5HpSZx0Y&callback=initMap">
 </script>
 
 </body>
