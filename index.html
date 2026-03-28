@@ -2,30 +2,13 @@
 <html lang="ar" dir="rtl">
 <head>
 <meta charset="UTF-8">
-<title>استخراج الحي والشارع</title>
+<title>استخراج فقط</title>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
 <style>
-body{
-    font-family:tahoma;
-    text-align:center;
-    margin-top:50px;
-    background:#f5f7fb
-}
-button{
-    padding:10px 20px;
-    background:#0ea5e9;
-    color:#fff;
-    border:none;
-    border-radius:6px;
-    cursor:pointer
-}
-input{
-    padding:8px;
-    width:300px;
-    margin:5px;
-}
+body{font-family:tahoma;text-align:center;margin-top:50px}
+button{padding:10px 20px;background:#0ea5e9;color:#fff;border:none;border-radius:6px}
 </style>
 </head>
 
@@ -33,49 +16,32 @@ input{
 
 <h2>📊 استخراج الحي والشارع</h2>
 
-<!-- 🔥 مربع المفتاح -->
-<input type="text" id="apiKey" placeholder="🔑 الصق مفتاح Google هنا"><br>
-
 <input type="file" id="file"><br><br>
-
-<button onclick="loadExcel()">🚀 تشغيل الاستخراج</button>
+<button onclick="loadExcel()">تشغيل</button>
 
 <script>
-
 let resultData=[];
 
 function loadExcel(){
-
-    const API_KEY = document.getElementById("apiKey").value;
-
-    if(!API_KEY){
-        alert("حط المفتاح أول!");
-        return;
-    }
-
     const file=document.getElementById("file").files[0];
     if(!file){alert("اختر ملف");return;}
 
     const reader=new FileReader();
-
     reader.onload=e=>{
         const data=new Uint8Array(e.target.result);
         const workbook=XLSX.read(data,{type:"array"});
         const sheet=workbook.Sheets[workbook.SheetNames[0]];
         const rows=XLSX.utils.sheet_to_json(sheet,{header:1});
 
-        process(rows,API_KEY);
+        process(rows);
     };
-
     reader.readAsArrayBuffer(file);
 }
 
-async function process(rows,API_KEY){
-
+async function process(rows){
     resultData=[["x","y","الحي","الشارع"]];
 
     for(let i=1;i<rows.length;i++){
-
         const row=rows[i];
         if(!row) continue;
 
@@ -84,7 +50,7 @@ async function process(rows,API_KEY){
 
         if(isNaN(lat)||isNaN(lng)) continue;
 
-        const info=await getAddress(lat,lng,API_KEY);
+        const info=await getAddress(lat,lng);
 
         resultData.push([
             lng,
@@ -97,49 +63,21 @@ async function process(rows,API_KEY){
     }
 
     exportExcel();
-    alert("تم الاستخراج ✅🔥");
+    alert("تم الاستخراج كامل ✅🔥");
 }
 
-function getAddress(lat,lng,API_KEY){
-
-    return fetch(`https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=${API_KEY}&language=ar`)
+function getAddress(lat,lng){
+    return fetch(`https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=YOUR_API_KEY&language=ar`)
     .then(res=>res.json())
     .then(data=>{
-
-        let street="";
-        let district="";
-
+        let street="",district="";
         if(data.results.length){
-
             data.results[0].address_components.forEach(c=>{
-
-                if(c.types.includes("route")){
-                    street = c.long_name;
-                }
-
-                if(
-                    c.types.includes("sublocality") ||
-                    c.types.includes("neighborhood") ||
-                    c.types.includes("sublocality_level_1")
-                ){
-                    district = c.long_name;
-                }
-
+                if(c.types.includes("route")) street=c.long_name;
+                if(c.types.includes("sublocality")||c.types.includes("locality")) district=c.long_name;
             });
-
-            if(!district){
-                district = data.results[0].formatted_address.split(",")[0];
-            }
         }
-
-        return {
-            street: street || "",
-            district: district || ""
-        };
-
-    })
-    .catch(()=>{
-        return {street:"",district:""};
+        return {street,district};
     });
 }
 
@@ -147,9 +85,8 @@ function exportExcel(){
     const ws=XLSX.utils.aoa_to_sheet(resultData);
     const wb=XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb,ws,"نتائج");
-    XLSX.writeFile(wb,"نتائج.xlsx");
+    XLSX.writeFile(wb,"النتائج.xlsx");
 }
-
 </script>
 
 </body>
