@@ -2,25 +2,53 @@
 <html lang="ar" dir="rtl">
 <head>
 <meta charset="UTF-8">
-<title>استخراج فقط</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>استخراج جماعي احترافي</title>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
 <style>
-body{font-family:tahoma;text-align:center;margin-top:50px}
-button{padding:10px 20px;background:#0ea5e9;color:#fff;border:none;border-radius:6px}
+body{margin:0;font-family:tahoma}
+#map{height:100vh;width:100%}
+.top{
+position:absolute;
+top:10px;
+left:50%;
+transform:translateX(-50%);
+background:#fff;
+padding:10px;
+border-radius:10px;
+box-shadow:0 4px 10px rgba(0,0,0,.2);
+z-index:10;
+display:flex;
+gap:10px
+}
+button{padding:6px 12px;border:none;background:#0ea5e9;color:#fff;border-radius:6px}
 </style>
 </head>
 
 <body>
 
-<h2>📊 استخراج الحي والشارع</h2>
+<div class="top">
+<input type="file" id="file">
+<button onclick="loadExcel()">رفع</button>
+<button onclick="exportExcel()">تصدير</button>
+</div>
 
-<input type="file" id="file"><br><br>
-<button onclick="loadExcel()">تشغيل</button>
+<div id="map"></div>
 
 <script>
+let map;
+let markers=[];
 let resultData=[];
+
+function initMap(){
+    map=new google.maps.Map(document.getElementById("map"),{
+        center:{lat:21.4,lng:40.4},
+        zoom:10,
+        mapTypeId:"hybrid"
+    });
+}
 
 function loadExcel(){
     const file=document.getElementById("file").files[0];
@@ -39,45 +67,85 @@ function loadExcel(){
 }
 
 async function process(rows){
+    clearMap();
     resultData=[["x","y","الحي","الشارع"]];
 
-    for(let i=1;i<rows.length;i++){
-        const row=rows[i];
-        if(!row) continue;
+    let batchSize = 10; // 🔥 عدد الطلبات مع بعض
 
-        const lng=parseFloat(row[0]);
-        const lat=parseFloat(row[1]);
+    for(let i=1;i<rows.length;i+=batchSize){
 
-        if(isNaN(lat)||isNaN(lng)) continue;
+        let promises = [];
 
-        const info=await getAddress(lat,lng);
+        for(let j=i;j<i+batchSize && j<rows.length;j++){
 
-        resultData.push([
-            lng,
-            lat,
-            info.district,
-            info.street
-        ]);
+            const row=rows[j];
+            if(!row) continue;
 
-        console.log("تم:",i);
+            const lng=parseFloat(row[0]); // X
+            const lat=parseFloat(row[1]); // Y
+            const district=row[2] || "";
+
+            if(isNaN(lat) || isNaN(lng)) continue;
+
+            addMarker(lat,lng,district);
+
+            promises.push(
+                getAddress(lat,lng).then(info=>{
+                    resultData.push([
+                        lng,
+                        lat,
+                        info.district || district,
+                        info.street || ""
+                    ]);
+                })
+            );
+        }
+
+        await Promise.all(promises); // 🔥 ينتظر الدفعة
+
+        console.log("تمت دفعة:", i);
     }
 
-    exportExcel();
-    alert("تم الاستخراج كامل ✅🔥");
+    alert("تم الاستخراج الجماعي ✅🔥");
+}
+
+function addMarker(lat,lng,name){
+    const marker=new google.maps.Marker({
+        position:{lat,lng},
+        map:map
+    });
+    markers.push(marker);
+}
+
+function clearMap(){
+    markers.forEach(m=>m.setMap(null));
+    markers=[];
 }
 
 function getAddress(lat,lng){
-    return fetch(`https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=YOUR_API_KEY&language=ar`)
-    .then(res=>res.json())
-    .then(data=>{
-        let street="",district="";
-        if(data.results.length){
-            data.results[0].address_components.forEach(c=>{
-                if(c.types.includes("route")) street=c.long_name;
-                if(c.types.includes("sublocality")||c.types.includes("locality")) district=c.long_name;
-            });
-        }
-        return {street,district};
+    return new Promise(resolve=>{
+        const url=`https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=AIzaSyBXJ_hCbWG7doWTL1bU_UgRAb4OSnMI5U0&language=ar`;
+
+        fetch(url)
+        .then(res=>res.json())
+        .then(data=>{
+            if(data.results.length>0){
+                const comp=data.results[0].address_components;
+
+                let street="";
+                let district="";
+
+                comp.forEach(c=>{
+                    if(c.types.includes("route")) street=c.long_name;
+                    if(c.types.includes("sublocality") || c.types.includes("locality")) district=c.long_name;
+                });
+
+                resolve({street,district});
+            }else{
+                resolve({street:"",district:""});
+            }
+        })
+        .catch(()=>resolve({street:"",district:""}));
     });
 }
 
@@ -85,9 +153,11 @@ function exportExcel(){
     const ws=XLSX.utils.aoa_to_sheet(resultData);
     const wb=XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb,ws,"نتائج");
-    XLSX.writeFile(wb,"النتائج.xlsx");
+    XLSX.writeFile(wb,"نتائج_جماعية.xlsx");
 }
 </script>
+
+<script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBXJ_hCbWG7doWTL1bU_UgRAb4OSnMI5U0&callback=initMap" async defer></script>
 
 </body>
 </html>
