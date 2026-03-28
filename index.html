@@ -70,7 +70,7 @@ async function process(rows){
     clearMap();
     resultData=[["x","y","الحي","الشارع"]];
 
-    let batchSize = 10; // 🔥 عدد الطلبات مع بعض
+    let batchSize = 10;
 
     for(let i=1;i<rows.length;i+=batchSize){
 
@@ -81,8 +81,8 @@ async function process(rows){
             const row=rows[j];
             if(!row) continue;
 
-            const lng=parseFloat(row[0]); // X
-            const lat=parseFloat(row[1]); // Y
+            const lng=parseFloat(row[0]);
+            const lat=parseFloat(row[1]);
             const district=row[2] || "";
 
             if(isNaN(lat) || isNaN(lng)) continue;
@@ -101,7 +101,7 @@ async function process(rows){
             );
         }
 
-        await Promise.all(promises); // 🔥 ينتظر الدفعة
+        await Promise.all(promises);
 
         console.log("تمت دفعة:", i);
     }
@@ -122,6 +122,7 @@ function clearMap(){
     markers=[];
 }
 
+// ✅ دالة محسّنة لاستخراج اسم الحي بدقة
 function getAddress(lat,lng){
     return new Promise(resolve=>{
         const url=`https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=AIzaSyBXJ_hCbWG7doWTL1bU_UgRAb4OSnMI5U0&language=ar`;
@@ -131,14 +132,56 @@ function getAddress(lat,lng){
         .then(data=>{
             if(data.results.length>0){
                 const comp=data.results[0].address_components;
+                const formattedAddress = data.results[0].formatted_address || "";
 
                 let street="";
                 let district="";
 
+                // 🔍 البحث عن الشارع (route)
                 comp.forEach(c=>{
                     if(c.types.includes("route")) street=c.long_name;
-                    if(c.types.includes("sublocality") || c.types.includes("locality")) district=c.long_name;
                 });
+
+                // 🔍 البحث عن الحي بترتيب الأولوية (من الأدق إلى الأعم)
+                // neighborhood = الحي المباشر
+                // sublocality_level_1 = الحي/المنطقة الفرعية
+                // sublocality = المنطقة المحلية
+                // locality = المدينة (مثل الطائف)
+                
+                const districtTypes = [
+                    "neighborhood",           // الحي المباشر
+                    "sublocality_level_1",    // الحي/الحي الفرعي
+                    "sublocality",            // المنطقة المحلية
+                    "administrative_area_level_3", // المستوى الإداري 3
+                    "administrative_area_level_2"  // المستوى الإداري 2
+                ];
+
+                for(let type of districtTypes){
+                    const found = comp.find(c => c.types.includes(type));
+                    if(found){
+                        district = found.long_name;
+                        // تجنب أسماء المدن الكبيرة إذا وجدنا حي أصغر
+                        if(type !== "locality" && type !== "administrative_area_level_2"){
+                            break;
+                        }
+                    }
+                }
+
+                // 🚫 إذا كان الناتج اسم مدينة كبيرة (مثل الطائف)، نحاول استخراج من العنوان المنسق
+                if(!district || district === "الطائف" || district === "Taif" || district === "مكة" || district === "Mecca"){
+                    // محاولة استخراج من formatted_address
+                    // العنوان المنسق يكون مثل: "123 شارع..., حي..., الطائف..."
+                    const parts = formattedAddress.split(',').map(p => p.trim());
+                    if(parts.length >= 2){
+                        // نأخذ الجزء قبل المدينة مباشرة
+                        const possibleDistrict = parts[parts.length - 2]; // العنصر قبل الأخير (المدينة)
+                        if(possibleDistrict && possibleDistrict !== district && 
+                           !possibleDistrict.includes("السعودية") && 
+                           !possibleDistrict.includes("Saudi Arabia")){
+                            district = possibleDistrict;
+                        }
+                    }
+                }
 
                 resolve({street,district});
             }else{
