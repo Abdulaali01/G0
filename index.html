@@ -2,135 +2,50 @@
 <html lang="ar" dir="rtl">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>استخراج Google</title>
-
-<script src="https://cdn.tailwindcss.com"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>خريطة اختبار</title>
 
 <style>
-body{font-family:tahoma;background:#f5f7fb}
-#map{height:500px;border-radius:12px;margin-top:15px}
+body{
+margin:0;
+font-family:tahoma;
+background:#f5f7fb;
+}
+#map{
+height:100vh;
+width:100%;
+}
 </style>
 </head>
 
 <body>
 
-<div class="p-6">
-
-<input type="file" id="fileInput">
-<button onclick="startExtraction()" class="bg-green-500 text-white px-4 py-2 rounded">
-بدء الاستخراج
-</button>
-
 <div id="map"></div>
-
-</div>
 
 <script>
 
-// ==================
-let allData = []
-let map
-let markers = []
-let API_KEY = "AIzaSyBXJ_hCbWG7doWTL1bU_UgRAb4OSnMI5U0"
-
-// ================== قراءة Excel
-document.getElementById("fileInput").addEventListener("change", e=>{
-const file = e.target.files[0]
-const reader = new FileReader()
-
-reader.onload = function(evt){
-const data = new Uint8Array(evt.target.result)
-const wb = XLSX.read(data,{type:'array'})
-const json = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]])
-
-allData = json.map((r,i)=>({
-id:i+1,
-lat: parseFloat(r.lat || r["خط العرض"]),
-lng: parseFloat(r.lng || r["خط الطول"]),
-street:"",
-neighborhood:"",
-status:"pending"
-}))
-
-showPoints()
-}
-
-reader.readAsArrayBuffer(file)
-})
-
-// ================== الخريطة
+// إنشاء الخريطة
 function initMap(){
-map = new google.maps.Map(document.getElementById("map"),{
-center:{lat:24.7,lng:46.6},
-zoom:6
-})
-}
+    const map = new google.maps.Map(document.getElementById("map"),{
+        center:{lat:21.3891,lng:39.8579}, // مكة
+        zoom:10,
+        mapTypeId:"hybrid",
+        gestureHandling:"greedy"
+    });
 
-// ================== عرض نقاط
-function showPoints(){
-
-markers.forEach(m=>m.setMap(null))
-markers=[]
-
-allData.forEach((r,i)=>{
-
-const marker = new google.maps.Marker({
-position:{lat:r.lat,lng:r.lng},
-map:map
-})
-
-markers.push(marker)
-})
-}
-
-// ================== استخراج Google
-async function startExtraction(){
-
-for(let i=0;i<allData.length;i++){
-
-let r = allData[i]
-
-try{
-
-await new Promise(res=>setTimeout(res,300)) // أسرع
-
-const url = `https://maps.googleapis.com/maps/api/geocode/json?latlng=${r.lat},${r.lng}&key=${API_KEY}`
-
-const res = await fetch(url)
-const data = await res.json()
-
-if(data.results && data.results.length>0){
-
-let components = data.results[0].address_components
-
-components.forEach(c=>{
-if(c.types.includes("route")){
-r.street = c.long_name
-}
-if(c.types.includes("sublocality") || c.types.includes("locality")){
-r.neighborhood = c.long_name
-}
-})
-
-r.status="completed"
-}
-
-}catch(e){
-r.status="error"
-}
-
-}
-
-alert("تم الانتهاء")
+    // مثال نقطة
+    new google.maps.Marker({
+        position:{lat:21.3891,lng:39.8579},
+        map:map,
+        title:"موقع تجريبي"
+    });
 }
 
 </script>
 
-<!-- Google Maps -->
+<!-- 🔥 المفتاح الشغال -->
 <script async defer
-src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBXJ_hCbWG7doWTL1bU_UgRAb4OSnMI5U0&callback=initMap">
+src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCKAdhnhp11pzOQXn8rQxcA-dB5HpSZx0Y&callback=initMap&language=ar&region=SA">
 </script>
 
 </body>
