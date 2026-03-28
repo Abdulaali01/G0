@@ -21,7 +21,11 @@ button{
     border-radius:6px;
     cursor:pointer
 }
-button:hover{background:#0284c7}
+input{
+    padding:8px;
+    width:300px;
+    margin:5px;
+}
 </style>
 </head>
 
@@ -29,33 +33,44 @@ button:hover{background:#0284c7}
 
 <h2>📊 استخراج الحي والشارع</h2>
 
+<!-- 🔥 مربع المفتاح -->
+<input type="text" id="apiKey" placeholder="🔑 الصق مفتاح Google هنا"><br>
+
 <input type="file" id="file"><br><br>
+
 <button onclick="loadExcel()">🚀 تشغيل الاستخراج</button>
 
 <script>
 
-// 🔥🔥🔥 هنا فقط تحط مفتاحك 🔥🔥🔥
-const API_KEY = "PUT_YOUR_API_KEY_HERE";
-
 let resultData=[];
 
 function loadExcel(){
+
+    const API_KEY = document.getElementById("apiKey").value;
+
+    if(!API_KEY){
+        alert("حط المفتاح أول!");
+        return;
+    }
+
     const file=document.getElementById("file").files[0];
     if(!file){alert("اختر ملف");return;}
 
     const reader=new FileReader();
+
     reader.onload=e=>{
         const data=new Uint8Array(e.target.result);
         const workbook=XLSX.read(data,{type:"array"});
         const sheet=workbook.Sheets[workbook.SheetNames[0]];
         const rows=XLSX.utils.sheet_to_json(sheet,{header:1});
 
-        process(rows);
+        process(rows,API_KEY);
     };
+
     reader.readAsArrayBuffer(file);
 }
 
-async function process(rows){
+async function process(rows,API_KEY){
 
     resultData=[["x","y","الحي","الشارع"]];
 
@@ -64,12 +79,12 @@ async function process(rows){
         const row=rows[i];
         if(!row) continue;
 
-        const lng=parseFloat(row[0]); // X
-        const lat=parseFloat(row[1]); // Y
+        const lng=parseFloat(row[0]);
+        const lat=parseFloat(row[1]);
 
         if(isNaN(lat)||isNaN(lng)) continue;
 
-        const info=await getAddress(lat,lng);
+        const info=await getAddress(lat,lng,API_KEY);
 
         resultData.push([
             lng,
@@ -82,12 +97,10 @@ async function process(rows){
     }
 
     exportExcel();
-    alert("تم الاستخراج كامل ✅🔥");
+    alert("تم الاستخراج ✅🔥");
 }
 
-
-// 🔥 دالة استخراج العنوان (محسنة)
-function getAddress(lat,lng){
+function getAddress(lat,lng,API_KEY){
 
     return fetch(`https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=${API_KEY}&language=ar`)
     .then(res=>res.json())
@@ -100,12 +113,10 @@ function getAddress(lat,lng){
 
             data.results[0].address_components.forEach(c=>{
 
-                // الشارع
                 if(c.types.includes("route")){
                     street = c.long_name;
                 }
 
-                // الحي (كل الاحتمالات)
                 if(
                     c.types.includes("sublocality") ||
                     c.types.includes("neighborhood") ||
@@ -116,7 +127,6 @@ function getAddress(lat,lng){
 
             });
 
-            // fallback
             if(!district){
                 district = data.results[0].formatted_address.split(",")[0];
             }
@@ -133,12 +143,11 @@ function getAddress(lat,lng){
     });
 }
 
-
 function exportExcel(){
     const ws=XLSX.utils.aoa_to_sheet(resultData);
     const wb=XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb,ws,"نتائج");
-    XLSX.writeFile(wb,"نتائج_الاستخراج.xlsx");
+    XLSX.writeFile(wb,"نتائج.xlsx");
 }
 
 </script>
