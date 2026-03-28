@@ -45,8 +45,9 @@
         .usage-settings { display: none; margin-top: 12px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,0.1); }
         .usage-settings.show { display: block; }
         .setting-input { width: 80px; padding: 4px 8px; border: 1px solid rgba(255,255,255,0.2); border-radius: 4px; background: rgba(255,255,255,0.1); color: white; font-size: 12px; text-align: center; }
-        .map-loading { display: flex; align-items: center; justify-content: center; height: 100%; color: #6b7280; font-size: 16px; }
+        .map-loading { display: flex; align-items: center; justify-content: center; height: 100%; color: #6b7280; font-size: 16px; flex-direction: column; }
         .map-error { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; color: #dc2626; padding: 20px; text-align: center; }
+        .retry-btn { margin-top: 12px; padding: 8px 16px; background: #3b82f6; color: white; border: none; border-radius: 6px; cursor: pointer; }
     </style>
 </head>
 <body class="bg-gray-100 min-h-screen">
@@ -166,7 +167,10 @@
             </div>
 
             <div id="map">
-                <div class="map-loading" id="mapLoading">جاري تحميل الخريطة...</div>
+                <div class="map-loading" id="mapLoading">
+                    <div>جاري تحميل الخريطة...</div>
+                    <div style="font-size: 12px; margin-top: 8px; opacity: 0.7;">يرجى الانتظار</div>
+                </div>
             </div>
         </div>
 
@@ -205,9 +209,6 @@
         </div>
 
     </div>
-
-    <!-- Google Maps Script -->
-    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBXJ_hCbWG7doWTL1bU_UgRAb4OSnMI5U0&callback=initMap" async defer></script>
 
     <script>
         // ============================================
@@ -267,18 +268,82 @@
         function updateThreshold() { usageData.warningThreshold = parseInt(document.getElementById('warningThreshold').value) || 1000; saveUsageData(); checkWarnings(); }
 
         // ============================================
-        // GOOGLE MAPS
+        // GOOGLE MAPS - FIXED VERSION
         // ============================================
         let map = null;
         let markers = [];
-        let mapLoaded = false;
+        let mapInitialized = false;
         let mapRequestRecorded = false;
+        let mapLoadAttempts = 0;
+        const MAX_MAP_ATTEMPTS = 3;
+
+        // Load Google Maps API
+        function loadGoogleMaps() {
+            if (document.getElementById('google-maps-script') || mapInitialized) return;
+
+            console.log('Loading Google Maps...');
+            const script = document.createElement('script');
+            script.id = 'google-maps-script';
+            script.src = 'https://maps.googleapis.com/maps/api/js?key=AIzaSyBXJ_hCbWG7doWTL1bU_UgRAb4OSnMI5U0&callback=initMap&loading=async';
+            script.async = true;
+            script.defer = true;
+            script.onerror = function() {
+                console.error('Failed to load Google Maps');
+                showMapError('فشل تحميل Google Maps');
+            };
+            document.head.appendChild(script);
+        }
 
         function initMap() {
-            mapLoaded = true;
+            console.log('Google Maps loaded successfully');
+            mapInitialized = true;
             document.getElementById('mapLoading').style.display = 'none';
-            if (!mapRequestRecorded) { recordRequest(); mapRequestRecorded = true; }
-            if (missingData.length > 0) showMapData();
+
+            if (!mapRequestRecorded) {
+                recordRequest();
+                mapRequestRecorded = true;
+            }
+
+            // Initialize empty map
+            map = new google.maps.Map(document.getElementById('map'), {
+                zoom: 5,
+                center: { lat: 24.7136, lng: 46.6753 }, // Saudi Arabia center
+                mapTypeId: 'roadmap',
+                styles: [{
+                    featureType: 'poi',
+                    elementType: 'labels',
+                    stylers: [{ visibility: 'off' }]
+                }]
+            });
+
+            // If data already loaded, show it
+            if (missingData.length > 0) {
+                setTimeout(() => showMapData(), 100);
+            }
+        }
+
+        function showMapError(message) {
+            document.getElementById('map').innerHTML = `
+                <div class="map-error">
+                    <div style="font-size: 48px; margin-bottom: 12px;">⚠️</div>
+                    <div>${message}</div>
+                    <button class="retry-btn" onclick="retryLoadMap()">إعادة المحاولة</button>
+                </div>
+            `;
+        }
+
+        function retryLoadMap() {
+            mapLoadAttempts++;
+            if (mapLoadAttempts >= MAX_MAP_ATTEMPTS) {
+                showMapError('تجاوزت عدد المحاولات. تحقق من مفتاح API.');
+                return;
+            }
+            document.getElementById('map').innerHTML = `
+                <div class="map-loading">
+                    <div>جاري إعادة المحاولة... (${mapLoadAttempts}/${MAX_MAP_ATTEMPTS})</div>
+                </div>
+            `;
+            setTimeout(loadGoogleMaps, 1000);
         }
 
         // ============================================
@@ -346,7 +411,14 @@
 
             updateFileInfo(filename);
             updateStats();
-            if (mapLoaded) showMapData();
+
+            // Load map if not loaded yet
+            if (!mapInitialized) {
+                loadGoogleMaps();
+            } else {
+                showMapData();
+            }
+
             showDataTable();
             document.getElementById('statsSection').classList.remove('hidden');
             document.getElementById('mapSection').classList.remove('hidden');
@@ -354,28 +426,33 @@
         }
 
         function showMapData() {
-            if (!mapLoaded || missingData.length === 0) return;
+            if (!mapInitialized || !map || missingData.length === 0) return;
+
             const validCoords = missingData.filter(d => !isNaN(d.lat) && !isNaN(d.lng));
             if (validCoords.length === 0) return;
 
-            const center = { lat: validCoords.reduce((s, d) => s + d.lat, 0) / validCoords.length, lng: validCoords.reduce((s, d) => s + d.lng, 0) / validCoords.length };
-
-            if (!map) {
-                map = new google.maps.Map(document.getElementById('map'), {
-                    zoom: 12, center, mapTypeId: 'roadmap',
-                    styles: [{ featureType: 'poi', elementType: 'labels', stylers: [{ visibility: 'off' }] }]
-                });
-            } else { map.setCenter(center); }
-
+            // Clear existing markers
             markers.forEach(m => m.setMap(null));
             markers = [];
 
+            // Calculate center
+            const center = { 
+                lat: validCoords.reduce((s, d) => s + d.lat, 0) / validCoords.length, 
+                lng: validCoords.reduce((s, d) => s + d.lng, 0) / validCoords.length 
+            };
+
+            map.setCenter(center);
+            map.setZoom(12);
+
+            // Add markers
             validCoords.forEach(record => {
                 let color = record.isNeighborhoodMissing && record.isStreetMissing ? '#9b59b6' : record.isStreetMissing ? '#3498db' : '#e74c3c';
                 let title = record.isNeighborhoodMissing && record.isStreetMissing ? 'حي وشارع مفقودان' : record.isStreetMissing ? `الحي: ${record.neighborhood} (شارع مفقود)` : `شارع: ${record.street} (حي مفقود)`;
 
                 const marker = new google.maps.Marker({
-                    position: { lat: record.lat, lng: record.lng }, map, title,
+                    position: { lat: record.lat, lng: record.lng }, 
+                    map, 
+                    title,
                     icon: { path: google.maps.SymbolPath.CIRCLE, scale: 10, fillColor: color, fillOpacity: 0.9, strokeColor: '#fff', strokeWeight: 2 }
                 });
 
@@ -387,6 +464,7 @@
                 markers.push(marker);
             });
 
+            // Fit bounds
             if (markers.length > 0) {
                 const bounds = new google.maps.LatLngBounds();
                 markers.forEach(m => bounds.extend(m.getPosition()));
@@ -458,11 +536,15 @@
             document.getElementById('statsSection').classList.add('hidden');
             document.getElementById('mapSection').classList.add('hidden');
             document.getElementById('dataSection').classList.add('hidden');
-            if (map) { markers.forEach(m => m.setMap(null)); markers = []; map = null; }
+            if (map) { markers.forEach(m => m.setMap(null)); markers = []; }
         }
 
         // Initialize
-        document.addEventListener('DOMContentLoaded', () => { loadUsageData(); setupEventListeners(); });
+        document.addEventListener('DOMContentLoaded', () => { 
+            loadUsageData(); 
+            setupEventListeners(); 
+            // Don't load map immediately - wait for user to upload file
+        });
     </script>
 
 </body>
