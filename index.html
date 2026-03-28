@@ -3,18 +3,18 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>استخراج الأحياء - Google Maps</title>
+<title>استخراج الأحياء والشوارع</title>
 
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
 <style>
 body{font-family:tahoma;background:#f5f7fb}
-#map{height:500px;border-radius:12px}
+#map{height:500px;border-radius:12px;margin-top:15px}
 
 .usage{
 position:fixed;top:10px;left:10px;background:#111;color:#fff;
-padding:15px;border-radius:12px;font-size:14px;z-index:999
+padding:12px;border-radius:12px;font-size:13px;z-index:999
 }
 </style>
 </head>
@@ -22,9 +22,9 @@ padding:15px;border-radius:12px;font-size:14px;z-index:999
 <body>
 
 <div class="usage">
-<div>📊 الاستخدام</div>
-<div>المستخدم: <b id="used">0</b></div>
-<div>المتبقي: <b id="left">40000</b></div>
+📊 الاستخدام<br>
+المستخدم: <b id="used">0</b><br>
+المتبقي: <b id="left">40000</b>
 </div>
 
 <div class="p-6">
@@ -35,28 +35,25 @@ padding:15px;border-radius:12px;font-size:14px;z-index:999
 بدء الاستخراج
 </button>
 
-<div id="map" class="mt-4"></div>
+<div id="map"></div>
 
 </div>
 
 <script>
 
-// ================== البيانات ==================
+// ================== بيانات ==================
 let allData = []
 let map
 let markers = []
-let isProcessing = false
-
-// ================== العداد ==================
-let MAX_REQUESTS = 40000
 let usedRequests = 0
+let MAX = 40000
 
 function updateUsage(){
 document.getElementById("used").textContent = usedRequests
-document.getElementById("left").textContent = MAX_REQUESTS - usedRequests
+document.getElementById("left").textContent = MAX - usedRequests
 }
 
-// ================== قراءة الملف ==================
+// ================== قراءة Excel ==================
 document.getElementById("fileInput").addEventListener("change", e=>{
 const file = e.target.files[0]
 const reader = new FileReader()
@@ -72,7 +69,8 @@ lat: parseFloat(r.lat || r.latitude || r["خط العرض"]),
 lng: parseFloat(r.lng || r.lon || r["خط الطول"]),
 status:"pending"
 }))
-showDataOnMap()
+
+showPoints()
 }
 
 reader.readAsArrayBuffer(file)
@@ -83,13 +81,12 @@ function initMap(){
 map = new google.maps.Map(document.getElementById("map"),{
 center:{lat:24.7,lng:46.6},
 zoom:6,
-mapTypeId:"hybrid",
-gestureHandling:"greedy"
+mapTypeId:"hybrid"
 })
 }
 
-// ================== عرض ==================
-function showDataOnMap(){
+// ================== عرض النقاط ==================
+function showPoints(){
 
 markers.forEach(m=>m.setMap(null))
 markers=[]
@@ -123,44 +120,38 @@ if(markers.length>0) map.fitBounds(bounds)
 // ================== الاستخراج ==================
 async function startExtraction(){
 
-if(isProcessing) return
-isProcessing = true
-
 for(let i=0;i<allData.length;i++){
 
-if(usedRequests >= MAX_REQUESTS){
-alert("❌ وصلت الحد 40000")
+if(usedRequests>=MAX){
+alert("وصلت الحد 40000")
 break
 }
 
 let r = allData[i]
 
+await new Promise(res=>setTimeout(res,800))
+
 try{
 
-await new Promise(res=>setTimeout(res,1000))
-
 const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${r.lat}&lon=${r.lng}`
-
 const data = await fetch(url).then(res=>res.json())
 
 r.status="completed"
-
 usedRequests++
 updateUsage()
 
-}catch(e){
+}catch{
 r.status="error"
 }
 
-updateMarkerColor(i, r.status==="completed"?"green":"gray")
+updateColor(i, r.status==="completed"?"green":"gray")
 }
 
-isProcessing = false
-alert("✅ انتهى")
+alert("تم الانتهاء")
 }
 
-// ================== تحديث اللون ==================
-function updateMarkerColor(i,color){
+// ================== تغيير اللون ==================
+function updateColor(i,color){
 
 if(markers[i]){
 markers[i].setIcon({
@@ -176,9 +167,9 @@ strokeWeight:2
 
 </script>
 
-<!-- 🔥 حط مفتاحك هنا -->
+<!-- 🔥 مفتاحك هنا -->
 <script async defer
-src="https://maps.googleapis.com/maps/api/js?key=YOUR_API_KEY&callback=initMap">
+src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBXJ_hCbWG7doWTL1bU_UgRAb4OSnMI5U0&callback=initMap">
 </script>
 
 </body>
