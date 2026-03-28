@@ -510,6 +510,10 @@
             if (filteredData.length === 0) tbody.innerHTML = '<tr><td colspan="6" class="p-8 text-center text-gray-500">لا توجد بيانات مفقودة في هذا القسم</td></tr>';
         }
 
+        function showDataTable() {
+            renderTable(currentTab);
+        }
+
         function exportMissingData() {
             if (missingData.length === 0) { alert('لا توجد بيانات مفقودة للتصدير!'); return; }
             const exportData = missingData.map(r => ({ 'رقم السجل': r.id, 'خط العرض': r.lat, 'خط الطول': r.lng, 'الحي': r.neighborhood || 'مفقود', 'الشارع': r.street || 'مفقود', 'حالة الحي': r.isNeighborhoodMissing ? 'مفقود' : 'موجود', 'حالة الشارع': r.isStreetMissing ? 'مفقود' : 'موجود', 'ملاحظات': r.isNeighborhoodMissing && r.isStreetMissing ? 'الحي والشارع مفقودان' : r.isNeighborhoodMissing ? 'الحي مفقود' : 'الشارع مفقود' }));
