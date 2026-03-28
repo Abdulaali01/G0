@@ -9,6 +9,11 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
     <style>
         * { font-family: 'Cairo', sans-serif; }
         .gradient-bg { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
@@ -18,7 +23,7 @@
         .stat-card { background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); }
         .stat-card.blue { background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); }
         .stat-card.green { background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%); }
-        #map { height: 500px; width: 100%; border-radius: 12px; background: #e5e7eb; }
+        #map { height: 500px; width: 100%; border-radius: 12px; z-index: 1; }
         .data-table { max-height: 300px; overflow-y: auto; }
         .badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 600; }
         .badge-missing { background: #fee2e2; color: #dc2626; }
@@ -35,19 +40,14 @@
         .progress-fill { height: 100%; border-radius: 4px; transition: width 0.5s ease; }
         .progress-fill.high { background: linear-gradient(90deg, #22c55e, #16a34a); }
         .progress-fill.medium { background: linear-gradient(90deg, #eab308, #ca8a04); }
-        .progress-fill.low { background: linear-gradient(90deg, #ef4444, #dc2626); animation: pulse-red 1.5s infinite; }
-        @keyframes pulse-red { 0%, 100% { opacity: 1; } 50% { opacity: 0.6; } }
-        .usage-warning { background: rgba(239, 68, 68, 0.2); border: 1px solid rgba(239, 68, 68, 0.3); color: #fca5a5; padding: 8px 12px; border-radius: 8px; font-size: 12px; display: none; align-items: center; gap: 6px; }
-        .usage-warning.show { display: flex; }
-        .usage-btn { flex: 1; padding: 6px 10px; border: none; border-radius: 6px; font-size: 11px; cursor: pointer; transition: all 0.2s; font-weight: 600; }
+        .progress-fill.low { background: linear-gradient(90deg, #ef4444, #dc2626); }
+        .usage-btn { flex: 1; padding: 6px 10px; border: none; border-radius: 6px; font-size: 11px; cursor: pointer; font-weight: 600; }
         .usage-btn.primary { background: #3b82f6; color: white; }
         .usage-btn.secondary { background: rgba(255,255,255,0.1); color: white; }
         .usage-settings { display: none; margin-top: 12px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,0.1); }
         .usage-settings.show { display: block; }
         .setting-input { width: 80px; padding: 4px 8px; border: 1px solid rgba(255,255,255,0.2); border-radius: 4px; background: rgba(255,255,255,0.1); color: white; font-size: 12px; text-align: center; }
-        .map-loading { display: flex; align-items: center; justify-content: center; height: 100%; color: #6b7280; font-size: 16px; flex-direction: column; }
-        .map-error { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; color: #dc2626; padding: 20px; text-align: center; }
-        .retry-btn { margin-top: 12px; padding: 8px 16px; background: #3b82f6; color: white; border: none; border-radius: 6px; cursor: pointer; }
+        .map-loading { display: flex; align-items: center; justify-content: center; height: 100%; color: #6b7280; font-size: 16px; flex-direction: column; background: #f3f4f6; border-radius: 12px; }
     </style>
 </head>
 <body class="bg-gray-100 min-h-screen">
@@ -56,44 +56,29 @@
     <div class="usage-monitor" id="usageMonitor">
         <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px; font-size: 14px; font-weight: 600;">
             <span>📊</span>
-            <span>مراقب الاستهلاك</span>
+            <span>مراقب الاستخدام</span>
         </div>
         <div class="usage-stats">
             <div style="text-align: center;">
-                <span class="usage-stat-value" id="remainingRequests">40000</span>
-                <span class="usage-stat-label">متبقي</span>
+                <span class="usage-stat-value" id="fileCount">0</span>
+                <span class="usage-stat-label">ملفات</span>
             </div>
             <div style="text-align: center;">
-                <span class="usage-stat-value" id="usedRequests">0</span>
-                <span class="usage-stat-label">مستخدم</span>
+                <span class="usage-stat-value" id="recordCount">0</span>
+                <span class="usage-stat-label">سجلات</span>
             </div>
         </div>
-        <div class="progress-bar">
-            <div class="progress-fill high" id="progressBar" style="width: 100%"></div>
-        </div>
-        <div class="usage-warning" id="lowBalanceWarning">
-            <span>⚠️</span>
-            <span>الرصيد منخفض! &lt; 1000 طلب</span>
-        </div>
-        <div class="usage-warning" id="criticalWarning" style="background: rgba(220, 38, 38, 0.3); color: #fecaca;">
-            <span>🚨</span>
-            <span>الرصيد حرج! &lt; 100 طلب</span>
-        </div>
-        <div style="font-size: 11px; opacity: 0.6; margin-top: 8px; text-align: center;">
-            آخر تحديث: <span id="lastUpdate">—</span>
+        <div style="font-size: 11px; opacity: 0.6; text-align: center;">
+            الخريطة مجانية 100% ✅
         </div>
         <div style="display: flex; gap: 8px; margin-top: 12px;">
-            <button class="usage-btn secondary" onclick="resetUsage()">إعادة تعيين</button>
+            <button class="usage-btn secondary" onclick="resetAll()">إعادة تعيين</button>
             <button class="usage-btn primary" onclick="toggleSettings()">الإعدادات</button>
         </div>
         <div class="usage-settings" id="usageSettings">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; font-size: 12px;">
-                <span>الرصيد الأولي:</span>
-                <input type="number" class="setting-input" id="initialQuota" value="40000" onchange="updateQuota()">
-            </div>
-            <div style="display: flex; justify-content: space-between; align-items: center; font-size: 12px;">
-                <span>تنبيه عند:</span>
-                <input type="number" class="setting-input" id="warningThreshold" value="1000" onchange="updateThreshold()">
+            <div style="font-size: 12px; text-align: center; opacity: 0.8;">
+                لا حاجة لـ API Key<br>
+                Leaflet خريطة مفتوحة المصدر
             </div>
         </div>
     </div>
@@ -118,7 +103,7 @@
                 <div class="text-6xl mb-4">📊</div>
                 <h3 class="text-xl font-semibold text-gray-700 mb-2">اسحب الملف هنا أو انقر للاختيار</h3>
                 <p class="text-gray-500">يدعم ملفات Excel (.xlsx, .xls) و CSV</p>
-                <p class="text-sm text-gray-400 mt-2">يجب أن يحتوي الملف على أعمدة: الإحداثيات (خط الطول/العرض)، الأحياء، الشوارع</p>
+                <p class="text-sm text-gray-400 mt-2">يجب أن يحتوي الملف على: الإحداثيات، الأحياء، الشوارع</p>
             </div>
 
             <div id="fileInfo" class="hidden mt-4 p-4 bg-green-50 border border-green-200 rounded-lg">
@@ -166,12 +151,7 @@
                 <div class="flex items-center"><span class="w-4 h-4 rounded-full bg-purple-500 ml-2"></span><span>الاثنان مفقودان</span></div>
             </div>
 
-            <div id="map">
-                <div class="map-loading" id="mapLoading">
-                    <div>جاري تحميل الخريطة...</div>
-                    <div style="font-size: 12px; margin-top: 8px; opacity: 0.7;">يرجى الانتظار</div>
-                </div>
-            </div>
+            <div id="map"></div>
         </div>
 
         <div id="dataSection" class="hidden glass-panel rounded-2xl p-6 shadow-xl">
@@ -212,147 +192,98 @@
 
     <script>
         // ============================================
-        // USAGE MONITOR
-        // ============================================
-        const USAGE_KEY = 'gmaps_usage_data_v1';
-        let usageData = { initialQuota: 40000, usedRequests: 0, warningThreshold: 1000, lastReset: new Date().toISOString() };
-
-        function loadUsageData() {
-            const saved = localStorage.getItem(USAGE_KEY);
-            if (saved) usageData = JSON.parse(saved);
-            updateDisplay();
-            document.getElementById('initialQuota').value = usageData.initialQuota;
-            document.getElementById('warningThreshold').value = usageData.warningThreshold;
-        }
-
-        function saveUsageData() { localStorage.setItem(USAGE_KEY, JSON.stringify(usageData)); }
-
-        function recordRequest() {
-            usageData.usedRequests++;
-            saveUsageData();
-            updateDisplay();
-            checkWarnings();
-        }
-
-        function updateDisplay() {
-            const remaining = usageData.initialQuota - usageData.usedRequests;
-            const percentage = (remaining / usageData.initialQuota) * 100;
-            document.getElementById('remainingRequests').textContent = remaining.toLocaleString();
-            document.getElementById('usedRequests').textContent = usageData.usedRequests.toLocaleString();
-            const bar = document.getElementById('progressBar');
-            bar.style.width = percentage + '%';
-            bar.className = 'progress-fill ' + (percentage > 50 ? 'high' : percentage > 10 ? 'medium' : 'low');
-            document.getElementById('lastUpdate').textContent = new Date().toLocaleTimeString('ar-SA');
-        }
-
-        function checkWarnings() {
-            const remaining = usageData.initialQuota - usageData.usedRequests;
-            document.getElementById('lowBalanceWarning').classList.toggle('show', remaining <= usageData.warningThreshold && remaining > 100);
-            document.getElementById('criticalWarning').classList.toggle('show', remaining <= 100);
-        }
-
-        function resetUsage() {
-            if (confirm('هل أنت متأكد من إعادة تعيين العداد؟')) {
-                usageData.usedRequests = 0;
-                usageData.lastReset = new Date().toISOString();
-                saveUsageData();
-                updateDisplay();
-                document.getElementById('lowBalanceWarning').classList.remove('show');
-                document.getElementById('criticalWarning').classList.remove('show');
-                showNotification('✅ تم إعادة تعيين العداد');
-            }
-        }
-
-        function toggleSettings() { document.getElementById('usageSettings').classList.toggle('show'); }
-        function updateQuota() { usageData.initialQuota = parseInt(document.getElementById('initialQuota').value) || 40000; saveUsageData(); updateDisplay(); checkWarnings(); }
-        function updateThreshold() { usageData.warningThreshold = parseInt(document.getElementById('warningThreshold').value) || 1000; saveUsageData(); checkWarnings(); }
-
-        // ============================================
-        // GOOGLE MAPS - FIXED VERSION
-        // ============================================
-        let map = null;
-        let markers = [];
-        let mapInitialized = false;
-        let mapRequestRecorded = false;
-        let mapLoadAttempts = 0;
-        const MAX_MAP_ATTEMPTS = 3;
-
-        // Load Google Maps API
-        function loadGoogleMaps() {
-            if (document.getElementById('google-maps-script') || mapInitialized) return;
-
-            console.log('Loading Google Maps...');
-            const script = document.createElement('script');
-            script.id = 'google-maps-script';
-            script.src = 'https://maps.googleapis.com/maps/api/js?key=AIzaSyBXJ_hCbWG7doWTL1bU_UgRAb4OSnMI5U0&callback=initMap&loading=async';
-            script.async = true;
-            script.defer = true;
-            script.onerror = function() {
-                console.error('Failed to load Google Maps');
-                showMapError('فشل تحميل Google Maps');
-            };
-            document.head.appendChild(script);
-        }
-
-        function initMap() {
-            console.log('Google Maps loaded successfully');
-            mapInitialized = true;
-            document.getElementById('mapLoading').style.display = 'none';
-
-            if (!mapRequestRecorded) {
-                recordRequest();
-                mapRequestRecorded = true;
-            }
-
-            // Initialize empty map
-            map = new google.maps.Map(document.getElementById('map'), {
-                zoom: 5,
-                center: { lat: 24.7136, lng: 46.6753 }, // Saudi Arabia center
-                mapTypeId: 'roadmap',
-                styles: [{
-                    featureType: 'poi',
-                    elementType: 'labels',
-                    stylers: [{ visibility: 'off' }]
-                }]
-            });
-
-            // If data already loaded, show it
-            if (missingData.length > 0) {
-                setTimeout(() => showMapData(), 100);
-            }
-        }
-
-        function showMapError(message) {
-            document.getElementById('map').innerHTML = `
-                <div class="map-error">
-                    <div style="font-size: 48px; margin-bottom: 12px;">⚠️</div>
-                    <div>${message}</div>
-                    <button class="retry-btn" onclick="retryLoadMap()">إعادة المحاولة</button>
-                </div>
-            `;
-        }
-
-        function retryLoadMap() {
-            mapLoadAttempts++;
-            if (mapLoadAttempts >= MAX_MAP_ATTEMPTS) {
-                showMapError('تجاوزت عدد المحاولات. تحقق من مفتاح API.');
-                return;
-            }
-            document.getElementById('map').innerHTML = `
-                <div class="map-loading">
-                    <div>جاري إعادة المحاولة... (${mapLoadAttempts}/${MAX_MAP_ATTEMPTS})</div>
-                </div>
-            `;
-            setTimeout(loadGoogleMaps, 1000);
-        }
-
-        // ============================================
-        // MAIN APP
+        // DATA STORAGE
         // ============================================
         let allData = [];
         let missingData = [];
         let currentTab = 'all';
+        let map = null;
+        let markers = [];
+        let fileCounter = 0;
 
+        // ============================================
+        // USAGE MONITOR
+        // ============================================
+        function updateUsageStats() {
+            document.getElementById('fileCount').textContent = fileCounter;
+            document.getElementById('recordCount').textContent = allData.length.toLocaleString();
+        }
+
+        function toggleSettings() { 
+            document.getElementById('usageSettings').classList.toggle('show'); 
+        }
+
+        function resetAll() {
+            if (confirm('هل أنت متأكد من إعادة تعيين كل شيء؟')) {
+                resetData();
+                fileCounter = 0;
+                updateUsageStats();
+                showNotification('✅ تم إعادة التعيين');
+            }
+        }
+
+        // ============================================
+        // LEAFLET MAP
+        // ============================================
+        function initMap() {
+            if (map) return;
+
+            // Initialize map centered on Saudi Arabia
+            map = L.map('map').setView([24.7136, 46.6753], 5);
+
+            // Add OpenStreetMap tiles (FREE)
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap contributors',
+                maxZoom: 19
+            }).addTo(map);
+        }
+
+        function showMapData() {
+            if (!map) initMap();
+
+            // Clear existing markers
+            markers.forEach(m => map.removeLayer(m));
+            markers = [];
+
+            const validCoords = missingData.filter(d => !isNaN(d.lat) && !isNaN(d.lng));
+            if (validCoords.length === 0) return;
+
+            // Add markers
+            validCoords.forEach(record => {
+                let color = record.isNeighborhoodMissing && record.isStreetMissing ? '#9b59b6' : 
+                           record.isStreetMissing ? '#3498db' : '#e74c3c';
+
+                let popupContent = `
+                    <div style="font-family: Cairo; direction: rtl; text-align: right;">
+                        <h3 style="margin: 0 0 10px 0; color: ${color};">سجل #${record.id}</h3>
+                        <p><strong>الإحداثيات:</strong> ${record.lat.toFixed(6)}, ${record.lng.toFixed(6)}</p>
+                        <p><strong>الحي:</strong> ${record.neighborhood || '<span style="color: red;">مفقود</span>'}</p>
+                        <p><strong>الشارع:</strong> ${record.street || '<span style="color: red;">مفقود</span>'}</p>
+                    </div>
+                `;
+
+                const marker = L.circleMarker([record.lat, record.lng], {
+                    radius: 8,
+                    fillColor: color,
+                    color: '#fff',
+                    weight: 2,
+                    opacity: 1,
+                    fillOpacity: 0.9
+                }).addTo(map).bindPopup(popupContent);
+
+                markers.push(marker);
+            });
+
+            // Fit bounds
+            if (markers.length > 0) {
+                const group = new L.featureGroup(markers);
+                map.fitBounds(group.getBounds().pad(0.1));
+            }
+        }
+
+        // ============================================
+        // FILE HANDLING
+        // ============================================
         function setupEventListeners() {
             const dropZone = document.getElementById('dropZone');
             const fileInput = document.getElementById('fileInput');
@@ -368,7 +299,9 @@
             });
         }
 
-        function handleFileSelect(e) { if (e.target.files[0]) processFile(e.target.files[0]); }
+        function handleFileSelect(e) { 
+            if (e.target.files[0]) processFile(e.target.files[0]); 
+        }
 
         function processFile(file) {
             const reader = new FileReader();
@@ -378,17 +311,19 @@
                     const workbook = XLSX.read(data, { type: 'array' });
                     const jsonData = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]]);
                     if (jsonData.length === 0) { alert('الملف فارغ!'); return; }
+
+                    fileCounter++;
                     parseData(jsonData, file.name);
-                } catch (error) { alert('خطأ في قراءة الملف: ' + error.message); }
+                } catch (error) { 
+                    alert('خطأ في قراءة الملف: ' + error.message); 
+                }
             };
             reader.readAsArrayBuffer(file);
         }
 
         function parseData(data, filename) {
-            allData = [];
-            missingData = [];
-
             const columns = Object.keys(data[0]);
+
             let latCol = columns.find(c => c.toLowerCase().includes('lat') || c.includes('خط العرض') || c.includes('latitude')) || columns[0];
             let lngCol = columns.find(c => c.toLowerCase().includes('lng') || c.toLowerCase().includes('lon') || c.includes('خط الطول') || c.includes('longitude')) || columns[1];
             let neighborhoodCol = columns.find(c => c.includes('حي') || c.includes('neighborhood') || c.includes('district')) || columns[2] || columns[0];
@@ -403,7 +338,18 @@
                 if (!isNaN(lat) && !isNaN(lng)) {
                     const isNeighborhoodMissing = !neighborhood || neighborhood === '' || neighborhood === 'null';
                     const isStreetMissing = !street || street === '' || street === 'null';
-                    const record = { id: index + 1, lat, lng, neighborhood: isNeighborhoodMissing ? '' : neighborhood, street: isStreetMissing ? '' : street, isNeighborhoodMissing, isStreetMissing, isMissing: isNeighborhoodMissing || isStreetMissing };
+
+                    const record = { 
+                        id: allData.length + 1, 
+                        lat, 
+                        lng, 
+                        neighborhood: isNeighborhoodMissing ? '' : neighborhood, 
+                        street: isStreetMissing ? '' : street, 
+                        isNeighborhoodMissing, 
+                        isStreetMissing, 
+                        isMissing: isNeighborhoodMissing || isStreetMissing 
+                    };
+
                     allData.push(record);
                     if (record.isMissing) missingData.push(record);
                 }
@@ -411,65 +357,13 @@
 
             updateFileInfo(filename);
             updateStats();
+            updateUsageStats();
+            showMapData();
+            renderTable(currentTab);
 
-            // Load map if not loaded yet
-            if (!mapInitialized) {
-                loadGoogleMaps();
-            } else {
-                showMapData();
-            }
-
-            showDataTable();
             document.getElementById('statsSection').classList.remove('hidden');
             document.getElementById('mapSection').classList.remove('hidden');
             document.getElementById('dataSection').classList.remove('hidden');
-        }
-
-        function showMapData() {
-            if (!mapInitialized || !map || missingData.length === 0) return;
-
-            const validCoords = missingData.filter(d => !isNaN(d.lat) && !isNaN(d.lng));
-            if (validCoords.length === 0) return;
-
-            // Clear existing markers
-            markers.forEach(m => m.setMap(null));
-            markers = [];
-
-            // Calculate center
-            const center = { 
-                lat: validCoords.reduce((s, d) => s + d.lat, 0) / validCoords.length, 
-                lng: validCoords.reduce((s, d) => s + d.lng, 0) / validCoords.length 
-            };
-
-            map.setCenter(center);
-            map.setZoom(12);
-
-            // Add markers
-            validCoords.forEach(record => {
-                let color = record.isNeighborhoodMissing && record.isStreetMissing ? '#9b59b6' : record.isStreetMissing ? '#3498db' : '#e74c3c';
-                let title = record.isNeighborhoodMissing && record.isStreetMissing ? 'حي وشارع مفقودان' : record.isStreetMissing ? `الحي: ${record.neighborhood} (شارع مفقود)` : `شارع: ${record.street} (حي مفقود)`;
-
-                const marker = new google.maps.Marker({
-                    position: { lat: record.lat, lng: record.lng }, 
-                    map, 
-                    title,
-                    icon: { path: google.maps.SymbolPath.CIRCLE, scale: 10, fillColor: color, fillOpacity: 0.9, strokeColor: '#fff', strokeWeight: 2 }
-                });
-
-                const infoWindow = new google.maps.InfoWindow({
-                    content: `<div style="padding: 10px; font-family: Cairo; direction: rtl; text-align: right;"><h3 style="margin: 0 0 10px 0; color: ${color};">سجل #${record.id}</h3><p><strong>الإحداثيات:</strong> ${record.lat.toFixed(6)}, ${record.lng.toFixed(6)}</p><p><strong>الحي:</strong> ${record.neighborhood || '<span style="color: red;">مفقود</span>'}</p><p><strong>الشارع:</strong> ${record.street || '<span style="color: red;">مفقود</span>'}</p></div>`
-                });
-
-                marker.addListener('click', () => infoWindow.open(map, marker));
-                markers.push(marker);
-            });
-
-            // Fit bounds
-            if (markers.length > 0) {
-                const bounds = new google.maps.LatLngBounds();
-                markers.forEach(m => bounds.extend(m.getPosition()));
-                map.fitBounds(bounds);
-            }
         }
 
         function updateFileInfo(filename) {
@@ -497,31 +391,59 @@
         function renderTable(tab) {
             const tbody = document.getElementById('dataTableBody');
             tbody.innerHTML = '';
-            let filteredData = tab === 'all' ? missingData : tab === 'neighborhoods' ? missingData.filter(d => d.isNeighborhoodMissing) : missingData.filter(d => d.isStreetMissing);
+
+            let filteredData = tab === 'all' ? missingData : 
+                              tab === 'neighborhoods' ? missingData.filter(d => d.isNeighborhoodMissing) : 
+                              missingData.filter(d => d.isStreetMissing);
 
             filteredData.forEach(record => {
                 const row = document.createElement('tr');
                 row.className = 'border-b hover:bg-gray-50 transition';
-                let statusHtml = record.isNeighborhoodMissing && record.isStreetMissing ? '<span class="badge badge-missing">حي وشارع مفقودان</span>' : record.isNeighborhoodMissing ? '<span class="badge badge-missing">حي مفقود</span>' : '<span class="badge badge-missing">شارع مفقود</span>';
-                row.innerHTML = `<td class="p-3 font-semibold">${record.id}</td><td class="p-3 font-mono text-xs">${record.lat.toFixed(6)}</td><td class="p-3 font-mono text-xs">${record.lng.toFixed(6)}</td><td class="p-3 ${record.isNeighborhoodMissing ? 'text-red-500 font-bold' : ''}">${record.neighborhood || '—'}</td><td class="p-3 ${record.isStreetMissing ? 'text-red-500 font-bold' : ''}">${record.street || '—'}</td><td class="p-3">${statusHtml}</td>`;
+                let statusHtml = record.isNeighborhoodMissing && record.isStreetMissing ? 
+                    '<span class="badge badge-missing">حي وشارع مفقودان</span>' : 
+                    record.isNeighborhoodMissing ? '<span class="badge badge-missing">حي مفقود</span>' : 
+                    '<span class="badge badge-missing">شارع مفقود</span>';
+
+                row.innerHTML = `
+                    <td class="p-3 font-semibold">${record.id}</td>
+                    <td class="p-3 font-mono text-xs">${record.lat.toFixed(6)}</td>
+                    <td class="p-3 font-mono text-xs">${record.lng.toFixed(6)}</td>
+                    <td class="p-3 ${record.isNeighborhoodMissing ? 'text-red-500 font-bold' : ''}">${record.neighborhood || '—'}</td>
+                    <td class="p-3 ${record.isStreetMissing ? 'text-red-500 font-bold' : ''}">${record.street || '—'}</td>
+                    <td class="p-3">${statusHtml}</td>
+                `;
                 tbody.appendChild(row);
             });
 
-            if (filteredData.length === 0) tbody.innerHTML = '<tr><td colspan="6" class="p-8 text-center text-gray-500">لا توجد بيانات مفقودة في هذا القسم</td></tr>';
-        }
-
-        function showDataTable() {
-            renderTable(currentTab);
+            if (filteredData.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" class="p-8 text-center text-gray-500">لا توجد بيانات مفقودة في هذا القسم</td></tr>';
+            }
         }
 
         function exportMissingData() {
-            if (missingData.length === 0) { alert('لا توجد بيانات مفقودة للتصدير!'); return; }
-            const exportData = missingData.map(r => ({ 'رقم السجل': r.id, 'خط العرض': r.lat, 'خط الطول': r.lng, 'الحي': r.neighborhood || 'مفقود', 'الشارع': r.street || 'مفقود', 'حالة الحي': r.isNeighborhoodMissing ? 'مفقود' : 'موجود', 'حالة الشارع': r.isStreetMissing ? 'مفقود' : 'موجود', 'ملاحظات': r.isNeighborhoodMissing && r.isStreetMissing ? 'الحي والشارع مفقودان' : r.isNeighborhoodMissing ? 'الحي مفقود' : 'الشارع مفقود' }));
+            if (missingData.length === 0) { 
+                alert('لا توجد بيانات مفقودة للتصدير!'); 
+                return; 
+            }
+
+            const exportData = missingData.map(r => ({ 
+                'رقم السجل': r.id, 
+                'خط العرض': r.lat, 
+                'خط الطول': r.lng, 
+                'الحي': r.neighborhood || 'مفقود', 
+                'الشارع': r.street || 'مفقود', 
+                'حالة الحي': r.isNeighborhoodMissing ? 'مفقود' : 'موجود', 
+                'حالة الشارع': r.isStreetMissing ? 'مفقود' : 'موجود', 
+                'ملاحظات': r.isNeighborhoodMissing && r.isStreetMissing ? 'الحي والشارع مفقودان' : 
+                          r.isNeighborhoodMissing ? 'الحي مفقود' : 'الشارع مفقود' 
+            }));
+
             const wb = XLSX.utils.book_new();
             const ws = XLSX.utils.json_to_sheet(exportData);
             ws['!cols'] = [{ wch: 12 }, { wch: 15 }, { wch: 15 }, { wch: 25 }, { wch: 25 }, { wch: 12 }, { wch: 12 }, { wch: 30 }];
             XLSX.utils.book_append_sheet(wb, ws, 'البيانات المفقودة');
             XLSX.writeFile(wb, `البيانات_المفقودة_${new Date().toISOString().split('T')[0]}.xlsx`);
+
             showNotification('تم تصدير البيانات بنجاح! ✅');
         }
 
@@ -534,20 +456,24 @@
         }
 
         function resetData() {
-            allData = []; missingData = [];
+            allData = []; 
+            missingData = [];
             document.getElementById('fileInput').value = '';
             document.getElementById('fileInfo').classList.add('hidden');
             document.getElementById('statsSection').classList.add('hidden');
             document.getElementById('mapSection').classList.add('hidden');
             document.getElementById('dataSection').classList.add('hidden');
-            if (map) { markers.forEach(m => m.setMap(null)); markers = []; }
+
+            if (map) {
+                markers.forEach(m => map.removeLayer(m));
+                markers = [];
+            }
         }
 
         // Initialize
         document.addEventListener('DOMContentLoaded', () => { 
-            loadUsageData(); 
             setupEventListeners(); 
-            // Don't load map immediately - wait for user to upload file
+            updateUsageStats();
         });
     </script>
 
