@@ -3,14 +3,14 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<title>استخراج جماعي احترافي</title>
 
-<title>استخراج الشوارع والأحياء - Google</title>
-
-<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
 <style>
-body{margin:0;font-family:tahoma;background:#f5f7fb}
-.topBar{
+body{margin:0;font-family:tahoma}
+#map{height:100vh;width:100%}
+.top{
 position:absolute;
 top:10px;
 left:50%;
@@ -18,168 +18,146 @@ transform:translateX(-50%);
 background:#fff;
 padding:10px;
 border-radius:10px;
+box-shadow:0 4px 10px rgba(0,0,0,.2);
 z-index:10;
-box-shadow:0 4px 10px rgba(0,0,0,.2)
+display:flex;
+gap:10px
 }
-#map{height:100vh;width:100%}
-.table{
-position:absolute;
-bottom:0;
-width:100%;
-max-height:250px;
-overflow:auto;
-background:#fff;
-}
-table{width:100%;border-collapse:collapse;font-size:12px}
-td,th{padding:6px;border:1px solid #ddd;text-align:center}
+button{padding:6px 12px;border:none;background:#0ea5e9;color:#fff;border-radius:6px}
 </style>
 </head>
 
 <body>
 
-<div class="topBar">
-<input type="file" id="fileInput">
+<div class="top">
+<input type="file" id="file">
 <button onclick="loadExcel()">رفع</button>
-<button onclick="startExtract()">استخراج</button>
+<button onclick="exportExcel()">تصدير</button>
 </div>
 
 <div id="map"></div>
 
-<div class="table">
-<table>
-<thead>
-<tr>
-<th>#</th>
-<th>خط العرض</th>
-<th>خط الطول</th>
-<th>الحي</th>
-<th>الشارع</th>
-</tr>
-</thead>
-<tbody id="result"></tbody>
-</table>
-</div>
-
 <script>
-
 let map;
-let data=[];
+let markers=[];
+let resultData=[];
 
 function initMap(){
-map=new google.maps.Map(document.getElementById("map"),{
-center:{lat:21.3891,lng:39.8579},
-zoom:10
-});
+    map=new google.maps.Map(document.getElementById("map"),{
+        center:{lat:21.4,lng:40.4},
+        zoom:10,
+        mapTypeId:"hybrid"
+    });
 }
 
-// قراءة Excel
 function loadExcel(){
+    const file=document.getElementById("file").files[0];
+    if(!file){alert("اختر ملف");return;}
 
-const file=document.getElementById("fileInput").files[0];
-if(!file){alert("اختر ملف");return;}
+    const reader=new FileReader();
+    reader.onload=e=>{
+        const data=new Uint8Array(e.target.result);
+        const workbook=XLSX.read(data,{type:"array"});
+        const sheet=workbook.Sheets[workbook.SheetNames[0]];
+        const rows=XLSX.utils.sheet_to_json(sheet,{header:1});
 
-const reader=new FileReader();
-
-reader.onload=function(e){
-
-const wb=XLSX.read(new Uint8Array(e.target.result),{type:'array'});
-const json=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]]);
-
-data=json.map((r,i)=>({
-id:i+1,
-lat:parseFloat(r.lat || r["خط العرض"]),
-lng:parseFloat(r.lng || r["خط الطول"]),
-street:"",
-district:""
-}));
-
-alert("تم رفع البيانات");
-
-};
-
-reader.readAsArrayBuffer(file);
-
+        process(rows);
+    };
+    reader.readAsArrayBuffer(file);
 }
 
-// استخراج من Google
-async function startExtract(){
+async function process(rows){
+    clearMap();
+    resultData=[["x","y","الحي","الشارع"]];
 
-for(let i=0;i<data.length;i++){
+    let batchSize = 10; // 🔥 عدد الطلبات مع بعض
 
-let r=data[i];
+    for(let i=1;i<rows.length;i+=batchSize){
 
-const url=`https://maps.googleapis.com/maps/api/geocode/json?latlng=${r.lat},${r.lng}&key=AIzaSyCKAdhnhp11pzOQXn8rQxcA-dB5HpSZx0Y`;
+        let promises = [];
 
-try{
+        for(let j=i;j<i+batchSize && j<rows.length;j++){
 
-let res=await fetch(url);
-let json=await res.json();
+            const row=rows[j];
+            if(!row) continue;
 
-if(json.results.length){
+            const lng=parseFloat(row[0]); // X
+            const lat=parseFloat(row[1]); // Y
+            const district=row[2] || "";
 
-let comp=json.results[0].address_components;
+            if(isNaN(lat) || isNaN(lng)) continue;
 
-comp.forEach(c=>{
+            addMarker(lat,lng,district);
 
-if(c.types.includes("route")){
-r.street=c.long_name;
+            promises.push(
+                getAddress(lat,lng).then(info=>{
+                    resultData.push([
+                        lng,
+                        lat,
+                        info.district || district,
+                        info.street || ""
+                    ]);
+                })
+            );
+        }
+
+        await Promise.all(promises); // 🔥 ينتظر الدفعة
+
+        console.log("تمت دفعة:", i);
+    }
+
+    alert("تم الاستخراج الجماعي ✅🔥");
 }
 
-if(c.types.includes("sublocality") || c.types.includes("locality")){
-r.district=c.long_name;
+function addMarker(lat,lng,name){
+    const marker=new google.maps.Marker({
+        position:{lat,lng},
+        map:map
+    });
+    markers.push(marker);
 }
 
-});
-
+function clearMap(){
+    markers.forEach(m=>m.setMap(null));
+    markers=[];
 }
 
-}catch(e){}
+function getAddress(lat,lng){
+    return new Promise(resolve=>{
+        const url=`https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=AIzaSyBXJ_hCbWG7doWTL1bU_UgRAb4OSnMI5U0&language=ar`;
 
-drawRow(r);
-addMarker(r);
+        fetch(url)
+        .then(res=>res.json())
+        .then(data=>{
+            if(data.results.length>0){
+                const comp=data.results[0].address_components;
 
-await new Promise(r=>setTimeout(r,300)); // لا تضغط API
+                let street="";
+                let district="";
 
+                comp.forEach(c=>{
+                    if(c.types.includes("route")) street=c.long_name;
+                    if(c.types.includes("sublocality") || c.types.includes("locality")) district=c.long_name;
+                });
+
+                resolve({street,district});
+            }else{
+                resolve({street:"",district:""});
+            }
+        })
+        .catch(()=>resolve({street:"",district:""}));
+    });
 }
 
-alert("تم الانتهاء");
-
+function exportExcel(){
+    const ws=XLSX.utils.aoa_to_sheet(resultData);
+    const wb=XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb,ws,"نتائج");
+    XLSX.writeFile(wb,"نتائج_جماعية.xlsx");
 }
-
-// عرض جدول
-function drawRow(r){
-
-const tr=document.createElement("tr");
-
-tr.innerHTML=`
-<td>${r.id}</td>
-<td>${r.lat}</td>
-<td>${r.lng}</td>
-<td>${r.district}</td>
-<td>${r.street}</td>
-`;
-
-document.getElementById("result").appendChild(tr);
-
-}
-
-// إضافة نقطة
-function addMarker(r){
-
-new google.maps.Marker({
-position:{lat:r.lat,lng:r.lng},
-map:map,
-title:r.street
-});
-
-}
-
 </script>
 
-<!-- المفتاح الشغال -->
-<script async defer
-src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCKAdhnhp11pzOQXn8rQxcA-dB5HpSZx0Y&callback=initMap">
-</script>
+<script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBXJ_hCbWG7doWTL1bU_UgRAb4OSnMI5U0&callback=initMap" async defer></script>
 
 </body>
 </html>
