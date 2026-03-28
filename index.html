@@ -3,295 +3,100 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>تحليل بيانات الأحياء والشوارع - مع مراقب الاستهلاك</title>
+    <title>تحليل بيانات الأحياء والشوارع</title>
 
-    <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
-
-    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-
-    <!-- SheetJS for Excel -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
     <style>
-        * {
-            font-family: 'Cairo', sans-serif;
-        }
+        * { font-family: 'Cairo', sans-serif; }
+        .gradient-bg { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+        .glass-panel { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.2); }
+        .upload-zone { border: 3px dashed #cbd5e1; transition: all 0.3s ease; }
+        .upload-zone:hover, .upload-zone.dragover { border-color: #667eea; background: rgba(102, 126, 234, 0.05); }
+        .stat-card { background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); }
+        .stat-card.blue { background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); }
+        .stat-card.green { background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%); }
+        #map { height: 500px; width: 100%; border-radius: 12px; background: #e5e7eb; }
+        .data-table { max-height: 300px; overflow-y: auto; }
+        .badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 600; }
+        .badge-missing { background: #fee2e2; color: #dc2626; }
 
-        .gradient-bg {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        }
-
-        .glass-panel {
-            background: rgba(255, 255, 255, 0.95);
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.2);
-        }
-
-        .upload-zone {
-            border: 3px dashed #cbd5e1;
-            transition: all 0.3s ease;
-        }
-
-        .upload-zone:hover, .upload-zone.dragover {
-            border-color: #667eea;
-            background: rgba(102, 126, 234, 0.05);
-        }
-
-        .stat-card {
-            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-        }
-
-        .stat-card.blue {
-            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
-        }
-
-        .stat-card.green {
-            background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
-        }
-
-        #map {
-            height: 500px;
-            width: 100%;
-            border-radius: 12px;
-            background: #e5e7eb;
-        }
-
-        .data-table {
-            max-height: 300px;
-            overflow-y: auto;
-        }
-
-        .badge {
-            display: inline-block;
-            padding: 2px 8px;
-            border-radius: 12px;
-            font-size: 11px;
-            font-weight: 600;
-        }
-
-        .badge-missing {
-            background: #fee2e2;
-            color: #dc2626;
-        }
-
-        /* Usage Monitor Styles */
         .usage-monitor {
-            position: fixed;
-            top: 20px;
-            left: 20px;
-            background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
-            color: white;
-            padding: 16px 20px;
-            border-radius: 16px;
-            box-shadow: 0 10px 25px rgba(0,0,0,0.3);
-            z-index: 1000;
-            min-width: 220px;
-            border: 1px solid rgba(255,255,255,0.1);
+            position: fixed; top: 20px; left: 20px; background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+            color: white; padding: 16px 20px; border-radius: 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+            z-index: 1000; min-width: 220px; border: 1px solid rgba(255,255,255,0.1);
         }
-
-        .usage-header {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            margin-bottom: 12px;
-            font-size: 14px;
-            font-weight: 600;
-        }
-
-        .usage-stats {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 12px;
-            margin-bottom: 12px;
-        }
-
-        .usage-stat-value {
-            font-size: 24px;
-            font-weight: 700;
-            display: block;
-        }
-
-        .usage-stat-label {
-            font-size: 11px;
-            opacity: 0.7;
-        }
-
-        .progress-bar {
-            height: 8px;
-            background: rgba(255,255,255,0.1);
-            border-radius: 4px;
-            overflow: hidden;
-            margin-bottom: 12px;
-        }
-
-        .progress-fill {
-            height: 100%;
-            border-radius: 4px;
-            transition: width 0.5s ease;
-        }
-
+        .usage-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
+        .usage-stat-value { font-size: 24px; font-weight: 700; display: block; }
+        .usage-stat-label { font-size: 11px; opacity: 0.7; }
+        .progress-bar { height: 8px; background: rgba(255,255,255,0.1); border-radius: 4px; overflow: hidden; margin-bottom: 12px; }
+        .progress-fill { height: 100%; border-radius: 4px; transition: width 0.5s ease; }
         .progress-fill.high { background: linear-gradient(90deg, #22c55e, #16a34a); }
         .progress-fill.medium { background: linear-gradient(90deg, #eab308, #ca8a04); }
         .progress-fill.low { background: linear-gradient(90deg, #ef4444, #dc2626); animation: pulse-red 1.5s infinite; }
-
-        @keyframes pulse-red {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.6; }
-        }
-
-        .usage-warning {
-            background: rgba(239, 68, 68, 0.2);
-            border: 1px solid rgba(239, 68, 68, 0.3);
-            color: #fca5a5;
-            padding: 8px 12px;
-            border-radius: 8px;
-            font-size: 12px;
-            display: none;
-            align-items: center;
-            gap: 6px;
-        }
-
+        @keyframes pulse-red { 0%, 100% { opacity: 1; } 50% { opacity: 0.6; } }
+        .usage-warning { background: rgba(239, 68, 68, 0.2); border: 1px solid rgba(239, 68, 68, 0.3); color: #fca5a5; padding: 8px 12px; border-radius: 8px; font-size: 12px; display: none; align-items: center; gap: 6px; }
         .usage-warning.show { display: flex; }
-
-        .usage-actions {
-            display: flex;
-            gap: 8px;
-            margin-top: 12px;
-        }
-
-        .usage-btn {
-            flex: 1;
-            padding: 6px 10px;
-            border: none;
-            border-radius: 6px;
-            font-size: 11px;
-            cursor: pointer;
-            transition: all 0.2s;
-            font-weight: 600;
-        }
-
+        .usage-btn { flex: 1; padding: 6px 10px; border: none; border-radius: 6px; font-size: 11px; cursor: pointer; transition: all 0.2s; font-weight: 600; }
         .usage-btn.primary { background: #3b82f6; color: white; }
-        .usage-btn.primary:hover { background: #2563eb; }
         .usage-btn.secondary { background: rgba(255,255,255,0.1); color: white; }
-        .usage-btn.secondary:hover { background: rgba(255,255,255,0.2); }
-
-        .usage-settings {
-            display: none;
-            margin-top: 12px;
-            padding-top: 12px;
-            border-top: 1px solid rgba(255,255,255,0.1);
-        }
-
+        .usage-settings { display: none; margin-top: 12px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,0.1); }
         .usage-settings.show { display: block; }
-
-        .setting-row {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 8px;
-            font-size: 12px;
-        }
-
-        .setting-input {
-            width: 80px;
-            padding: 4px 8px;
-            border: 1px solid rgba(255,255,255,0.2);
-            border-radius: 4px;
-            background: rgba(255,255,255,0.1);
-            color: white;
-            font-size: 12px;
-            text-align: center;
-        }
-
-        .map-loading {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            height: 100%;
-            color: #6b7280;
-            font-size: 16px;
-        }
-
-        .map-error {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            height: 100%;
-            color: #dc2626;
-            padding: 20px;
-            text-align: center;
-        }
-
-        .retry-btn {
-            margin-top: 12px;
-            padding: 8px 16px;
-            background: #3b82f6;
-            color: white;
-            border: none;
-            border-radius: 6px;
-            cursor: pointer;
-        }
+        .setting-input { width: 80px; padding: 4px 8px; border: 1px solid rgba(255,255,255,0.2); border-radius: 4px; background: rgba(255,255,255,0.1); color: white; font-size: 12px; text-align: center; }
+        .map-loading { display: flex; align-items: center; justify-content: center; height: 100%; color: #6b7280; font-size: 16px; }
+        .map-error { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; color: #dc2626; padding: 20px; text-align: center; }
     </style>
 </head>
 <body class="bg-gray-100 min-h-screen">
 
     <!-- Usage Monitor -->
     <div class="usage-monitor" id="usageMonitor">
-        <div class="usage-header">
+        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px; font-size: 14px; font-weight: 600;">
             <span>📊</span>
             <span>مراقب الاستهلاك</span>
         </div>
-
         <div class="usage-stats">
-            <div class="usage-stat">
+            <div style="text-align: center;">
                 <span class="usage-stat-value" id="remainingRequests">40000</span>
                 <span class="usage-stat-label">متبقي</span>
             </div>
-            <div class="usage-stat">
+            <div style="text-align: center;">
                 <span class="usage-stat-value" id="usedRequests">0</span>
                 <span class="usage-stat-label">مستخدم</span>
             </div>
         </div>
-
         <div class="progress-bar">
             <div class="progress-fill high" id="progressBar" style="width: 100%"></div>
         </div>
-
         <div class="usage-warning" id="lowBalanceWarning">
             <span>⚠️</span>
             <span>الرصيد منخفض! &lt; 1000 طلب</span>
         </div>
-
         <div class="usage-warning" id="criticalWarning" style="background: rgba(220, 38, 38, 0.3); color: #fecaca;">
             <span>🚨</span>
             <span>الرصيد حرج! &lt; 100 طلب</span>
         </div>
-
         <div style="font-size: 11px; opacity: 0.6; margin-top: 8px; text-align: center;">
             آخر تحديث: <span id="lastUpdate">—</span>
         </div>
-
-        <div class="usage-actions">
+        <div style="display: flex; gap: 8px; margin-top: 12px;">
             <button class="usage-btn secondary" onclick="resetUsage()">إعادة تعيين</button>
             <button class="usage-btn primary" onclick="toggleSettings()">الإعدادات</button>
         </div>
-
         <div class="usage-settings" id="usageSettings">
-            <div class="setting-row">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; font-size: 12px;">
                 <span>الرصيد الأولي:</span>
                 <input type="number" class="setting-input" id="initialQuota" value="40000" onchange="updateQuota()">
             </div>
-            <div class="setting-row">
+            <div style="display: flex; justify-content: space-between; align-items: center; font-size: 12px;">
                 <span>تنبيه عند:</span>
                 <input type="number" class="setting-input" id="warningThreshold" value="1000" onchange="updateThreshold()">
             </div>
         </div>
     </div>
 
-    <!-- Header -->
     <header class="gradient-bg text-white py-6 shadow-lg">
         <div class="container mx-auto px-4">
             <h1 class="text-3xl font-bold text-center">📍 نظام تحليل الأحياء والشوارع</h1>
@@ -301,7 +106,6 @@
 
     <div class="container mx-auto px-4 py-8" style="margin-top: 80px;">
 
-        <!-- Upload Section -->
         <div class="glass-panel rounded-2xl p-8 mb-6 shadow-xl">
             <h2 class="text-2xl font-bold text-gray-800 mb-6 flex items-center">
                 <span class="bg-blue-500 text-white rounded-full w-8 h-8 flex items-center justify-center ml-3 text-sm">1</span>
@@ -325,14 +129,11 @@
                             <p class="text-sm text-green-600" id="fileStats"></p>
                         </div>
                     </div>
-                    <button onclick="resetData()" class="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition">
-                        إعادة تعيين
-                    </button>
+                    <button onclick="resetData()" class="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition">إعادة تعيين</button>
                 </div>
             </div>
         </div>
 
-        <!-- Statistics Cards -->
         <div id="statsSection" class="hidden grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
             <div class="stat-card blue rounded-xl p-6 text-white shadow-lg">
                 <div class="text-3xl font-bold" id="totalCount">0</div>
@@ -352,7 +153,6 @@
             </div>
         </div>
 
-        <!-- Map Section -->
         <div id="mapSection" class="hidden glass-panel rounded-2xl p-6 mb-6 shadow-xl">
             <h2 class="text-2xl font-bold text-gray-800 mb-4 flex items-center">
                 <span class="bg-green-500 text-white rounded-full w-8 h-8 flex items-center justify-center ml-3 text-sm">2</span>
@@ -360,51 +160,31 @@
             </h2>
 
             <div class="flex flex-wrap gap-4 mb-4 text-sm">
-                <div class="flex items-center">
-                    <span class="w-4 h-4 rounded-full bg-red-500 ml-2"></span>
-                    <span>حي مفقود فقط</span>
-                </div>
-                <div class="flex items-center">
-                    <span class="w-4 h-4 rounded-full bg-blue-500 ml-2"></span>
-                    <span>شارع مفقود فقط</span>
-                </div>
-                <div class="flex items-center">
-                    <span class="w-4 h-4 rounded-full bg-purple-500 ml-2"></span>
-                    <span>الاثنان مفقودان</span>
-                </div>
+                <div class="flex items-center"><span class="w-4 h-4 rounded-full bg-red-500 ml-2"></span><span>حي مفقود فقط</span></div>
+                <div class="flex items-center"><span class="w-4 h-4 rounded-full bg-blue-500 ml-2"></span><span>شارع مفقود فقط</span></div>
+                <div class="flex items-center"><span class="w-4 h-4 rounded-full bg-purple-500 ml-2"></span><span>الاثنان مفقودان</span></div>
             </div>
 
             <div id="map">
-                <div class="map-loading" id="mapLoading">
-                    <div>جاري تحميل الخريطة...</div>
-                </div>
+                <div class="map-loading" id="mapLoading">جاري تحميل الخريطة...</div>
             </div>
         </div>
 
-        <!-- Data Preview & Export Section -->
         <div id="dataSection" class="hidden glass-panel rounded-2xl p-6 shadow-xl">
             <div class="flex flex-col md:flex-row justify-between items-center mb-6">
                 <h2 class="text-2xl font-bold text-gray-800 flex items-center">
                     <span class="bg-purple-500 text-white rounded-full w-8 h-8 flex items-center justify-center ml-3 text-sm">3</span>
                     البيانات المفقودة
                 </h2>
-
                 <button onclick="exportMissingData()" class="mt-4 md:mt-0 px-6 py-3 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-xl font-semibold shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition flex items-center">
-                    <span class="ml-2">📥</span>
-                    تصدير Excel (المفقود فقط)
+                    <span class="ml-2">📥</span>تصدير Excel (المفقود فقط)
                 </button>
             </div>
 
             <div class="flex gap-2 mb-4 border-b">
-                <button onclick="showTab('all')" id="tab-all" class="px-4 py-2 font-semibold text-blue-600 border-b-2 border-blue-600 transition">
-                    الكل
-                </button>
-                <button onclick="showTab('neighborhoods')" id="tab-neighborhoods" class="px-4 py-2 font-semibold text-gray-500 hover:text-blue-600 transition">
-                    أحياء مفقودة
-                </button>
-                <button onclick="showTab('streets')" id="tab-streets" class="px-4 py-2 font-semibold text-gray-500 hover:text-blue-600 transition">
-                    شوارع مفقودة
-                </button>
+                <button onclick="showTab('all')" id="tab-all" class="px-4 py-2 font-semibold text-blue-600 border-b-2 border-blue-600 transition">الكل</button>
+                <button onclick="showTab('neighborhoods')" id="tab-neighborhoods" class="px-4 py-2 font-semibold text-gray-500 hover:text-blue-600 transition">أحياء مفقودة</button>
+                <button onclick="showTab('streets')" id="tab-streets" class="px-4 py-2 font-semibold text-gray-500 hover:text-blue-600 transition">شوارع مفقودة</button>
             </div>
 
             <div class="data-table">
@@ -426,34 +206,25 @@
 
     </div>
 
-    <!-- Google Maps API - Load after page content -->
+    <!-- Google Maps Script -->
+    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBXJ_hCbWG7doWTL1bU_UgRAb4OSnMI5U0&callback=initMap" async defer></script>
+
     <script>
         // ============================================
-        // USAGE MONITOR SYSTEM
+        // USAGE MONITOR
         // ============================================
-
         const USAGE_KEY = 'gmaps_usage_data_v1';
-        const DEFAULT_QUOTA = 40000;
-        const DEFAULT_WARNING_THRESHOLD = 1000;
-
-        let usageData = {
-            initialQuota: DEFAULT_QUOTA,
-            usedRequests: 0,
-            warningThreshold: DEFAULT_WARNING_THRESHOLD,
-            lastReset: new Date().toISOString()
-        };
+        let usageData = { initialQuota: 40000, usedRequests: 0, warningThreshold: 1000, lastReset: new Date().toISOString() };
 
         function loadUsageData() {
             const saved = localStorage.getItem(USAGE_KEY);
-            if (saved) {
-                usageData = JSON.parse(saved);
-                updateDisplay();
-            }
+            if (saved) usageData = JSON.parse(saved);
+            updateDisplay();
+            document.getElementById('initialQuota').value = usageData.initialQuota;
+            document.getElementById('warningThreshold').value = usageData.warningThreshold;
         }
 
-        function saveUsageData() {
-            localStorage.setItem(USAGE_KEY, JSON.stringify(usageData));
-        }
+        function saveUsageData() { localStorage.setItem(USAGE_KEY, JSON.stringify(usageData)); }
 
         function recordRequest() {
             usageData.usedRequests++;
@@ -465,31 +236,18 @@
         function updateDisplay() {
             const remaining = usageData.initialQuota - usageData.usedRequests;
             const percentage = (remaining / usageData.initialQuota) * 100;
-
             document.getElementById('remainingRequests').textContent = remaining.toLocaleString();
             document.getElementById('usedRequests').textContent = usageData.usedRequests.toLocaleString();
-
-            const progressBar = document.getElementById('progressBar');
-            progressBar.style.width = percentage + '%';
-
-            progressBar.className = 'progress-fill';
-            if (percentage > 50) progressBar.classList.add('high');
-            else if (percentage > 10) progressBar.classList.add('medium');
-            else progressBar.classList.add('low');
-
+            const bar = document.getElementById('progressBar');
+            bar.style.width = percentage + '%';
+            bar.className = 'progress-fill ' + (percentage > 50 ? 'high' : percentage > 10 ? 'medium' : 'low');
             document.getElementById('lastUpdate').textContent = new Date().toLocaleTimeString('ar-SA');
         }
 
         function checkWarnings() {
             const remaining = usageData.initialQuota - usageData.usedRequests;
-            document.getElementById('lowBalanceWarning').classList.remove('show');
-            document.getElementById('criticalWarning').classList.remove('show');
-
-            if (remaining <= 100) {
-                document.getElementById('criticalWarning').classList.add('show');
-            } else if (remaining <= usageData.warningThreshold) {
-                document.getElementById('lowBalanceWarning').classList.add('show');
-            }
+            document.getElementById('lowBalanceWarning').classList.toggle('show', remaining <= usageData.warningThreshold && remaining > 100);
+            document.getElementById('criticalWarning').classList.toggle('show', remaining <= 100);
         }
 
         function resetUsage() {
@@ -500,89 +258,32 @@
                 updateDisplay();
                 document.getElementById('lowBalanceWarning').classList.remove('show');
                 document.getElementById('criticalWarning').classList.remove('show');
-                showNotification('✅ تم إعادة تعيين العداد بنجاح');
+                showNotification('✅ تم إعادة تعيين العداد');
             }
         }
 
-        function toggleSettings() {
-            document.getElementById('usageSettings').classList.toggle('show');
-        }
-
-        function updateQuota() {
-            const newQuota = parseInt(document.getElementById('initialQuota').value);
-            if (newQuota > 0) {
-                usageData.initialQuota = newQuota;
-                saveUsageData();
-                updateDisplay();
-                checkWarnings();
-                showNotification('✅ تم تحديث الرصيد الأولي');
-            }
-        }
-
-        function updateThreshold() {
-            const newThreshold = parseInt(document.getElementById('warningThreshold').value);
-            if (newThreshold > 0) {
-                usageData.warningThreshold = newThreshold;
-                saveUsageData();
-                checkWarnings();
-                showNotification('✅ تم تحديث حد التنبيه');
-            }
-        }
+        function toggleSettings() { document.getElementById('usageSettings').classList.toggle('show'); }
+        function updateQuota() { usageData.initialQuota = parseInt(document.getElementById('initialQuota').value) || 40000; saveUsageData(); updateDisplay(); checkWarnings(); }
+        function updateThreshold() { usageData.warningThreshold = parseInt(document.getElementById('warningThreshold').value) || 1000; saveUsageData(); checkWarnings(); }
 
         // ============================================
         // GOOGLE MAPS
         // ============================================
-
         let map = null;
         let markers = [];
         let mapLoaded = false;
         let mapRequestRecorded = false;
 
-        // Load Google Maps API dynamically
-        function loadGoogleMaps() {
-            if (document.getElementById('google-maps-script')) return;
-
-            const script = document.createElement('script');
-            script.id = 'google-maps-script';
-            script.src = 'https://maps.googleapis.com/maps/api/js?key=AIzaSyBXJ_hCbWG7doWTL1bU_UgRAb4OSnMI5U0&callback=onMapLoad&libraries=marker';
-            script.async = true;
-            script.defer = true;
-            script.onerror = onMapError;
-            document.head.appendChild(script);
-        }
-
-        function onMapLoad() {
+        function initMap() {
             mapLoaded = true;
             document.getElementById('mapLoading').style.display = 'none';
-
-            if (!mapRequestRecorded) {
-                recordRequest();
-                mapRequestRecorded = true;
-            }
-
-            // If data already loaded, show it
-            if (missingData.length > 0) {
-                showMapData();
-            }
-        }
-
-        function onMapError() {
-            document.getElementById('map').innerHTML = `
-                <div class="map-error">
-                    <div style="font-size: 48px; margin-bottom: 12px;">⚠️</div>
-                    <div>فشل تحميل الخريطة</div>
-                    <div style="font-size: 14px; margin-top: 8px; color: #6b7280;">
-                        تحقق من اتصال الإنترنت أو مفتاح API
-                    </div>
-                    <button class="retry-btn" onclick="location.reload()">إعادة المحاولة</button>
-                </div>
-            `;
+            if (!mapRequestRecorded) { recordRequest(); mapRequestRecorded = true; }
+            if (missingData.length > 0) showMapData();
         }
 
         // ============================================
-        // MAIN APPLICATION
+        // MAIN APP
         // ============================================
-
         let allData = [];
         let missingData = [];
         let currentTab = 'all';
@@ -593,51 +294,28 @@
 
             dropZone.addEventListener('click', () => fileInput.click());
             fileInput.addEventListener('change', handleFileSelect);
-
-            dropZone.addEventListener('dragover', (e) => {
-                e.preventDefault();
-                dropZone.classList.add('dragover');
-            });
-
-            dropZone.addEventListener('dragleave', () => {
-                dropZone.classList.remove('dragover');
-            });
-
+            dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('dragover'); });
+            dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
             dropZone.addEventListener('drop', (e) => {
                 e.preventDefault();
                 dropZone.classList.remove('dragover');
-                const files = e.dataTransfer.files;
-                if (files.length > 0) processFile(files[0]);
+                if (e.dataTransfer.files.length > 0) processFile(e.dataTransfer.files[0]);
             });
         }
 
-        function handleFileSelect(e) {
-            const file = e.target.files[0];
-            if (file) processFile(file);
-        }
+        function handleFileSelect(e) { if (e.target.files[0]) processFile(e.target.files[0]); }
 
         function processFile(file) {
             const reader = new FileReader();
-
             reader.onload = function(e) {
                 try {
                     const data = new Uint8Array(e.target.result);
                     const workbook = XLSX.read(data, { type: 'array' });
-                    const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
-                    const jsonData = XLSX.utils.sheet_to_json(firstSheet);
-
-                    if (jsonData.length === 0) {
-                        alert('الملف فارغ!');
-                        return;
-                    }
-
+                    const jsonData = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]]);
+                    if (jsonData.length === 0) { alert('الملف فارغ!'); return; }
                     parseData(jsonData, file.name);
-
-                } catch (error) {
-                    alert('خطأ في قراءة الملف: ' + error.message);
-                }
+                } catch (error) { alert('خطأ في قراءة الملف: ' + error.message); }
             };
-
             reader.readAsArrayBuffer(file);
         }
 
@@ -645,42 +323,11 @@
             allData = [];
             missingData = [];
 
-            const firstRow = data[0];
-            const columns = Object.keys(firstRow);
-
-            let latCol = columns.find(col => 
-                col.toLowerCase().includes('lat') || 
-                col.includes('خط العرض') ||
-                col.includes('عرض') ||
-                col.includes('latitude')
-            );
-
-            let lngCol = columns.find(col => 
-                col.toLowerCase().includes('lng') || 
-                col.toLowerCase().includes('lon') ||
-                col.includes('خط الطول') ||
-                col.includes('طول') ||
-                col.includes('longitude')
-            );
-
-            let neighborhoodCol = columns.find(col => 
-                col.includes('حي') || 
-                col.includes('حى') ||
-                col.includes('neighborhood') ||
-                col.includes('district') ||
-                col.includes('منطقة')
-            );
-
-            let streetCol = columns.find(col => 
-                col.includes('شارع') || 
-                col.includes('street') ||
-                col.includes('طريق')
-            );
-
-            if (!latCol) latCol = columns[0];
-            if (!lngCol) lngCol = columns[1];
-            if (!neighborhoodCol) neighborhoodCol = columns[2] || columns[0];
-            if (!streetCol) streetCol = columns[3] || columns[1];
+            const columns = Object.keys(data[0]);
+            let latCol = columns.find(c => c.toLowerCase().includes('lat') || c.includes('خط العرض') || c.includes('latitude')) || columns[0];
+            let lngCol = columns.find(c => c.toLowerCase().includes('lng') || c.toLowerCase().includes('lon') || c.includes('خط الطول') || c.includes('longitude')) || columns[1];
+            let neighborhoodCol = columns.find(c => c.includes('حي') || c.includes('neighborhood') || c.includes('district')) || columns[2] || columns[0];
+            let streetCol = columns.find(c => c.includes('شارع') || c.includes('street')) || columns[3] || columns[1];
 
             data.forEach((row, index) => {
                 const lat = parseFloat(row[latCol]);
@@ -689,20 +336,9 @@
                 const street = row[streetCol] ? String(row[streetCol]).trim() : '';
 
                 if (!isNaN(lat) && !isNaN(lng)) {
-                    const isNeighborhoodMissing = !neighborhood || neighborhood === '' || neighborhood === 'null' || neighborhood === 'undefined';
-                    const isStreetMissing = !street || street === '' || street === 'null' || street === 'undefined';
-
-                    const record = {
-                        id: index + 1,
-                        lat: lat,
-                        lng: lng,
-                        neighborhood: isNeighborhoodMissing ? '' : neighborhood,
-                        street: isStreetMissing ? '' : street,
-                        isNeighborhoodMissing: isNeighborhoodMissing,
-                        isStreetMissing: isStreetMissing,
-                        isMissing: isNeighborhoodMissing || isStreetMissing
-                    };
-
+                    const isNeighborhoodMissing = !neighborhood || neighborhood === '' || neighborhood === 'null';
+                    const isStreetMissing = !street || street === '' || street === 'null';
+                    const record = { id: index + 1, lat, lng, neighborhood: isNeighborhoodMissing ? '' : neighborhood, street: isStreetMissing ? '' : street, isNeighborhoodMissing, isStreetMissing, isMissing: isNeighborhoodMissing || isStreetMissing };
                     allData.push(record);
                     if (record.isMissing) missingData.push(record);
                 }
@@ -710,13 +346,8 @@
 
             updateFileInfo(filename);
             updateStats();
-
-            // Load map if not loaded
-            if (!mapLoaded) loadGoogleMaps();
-            else showMapData();
-
+            if (mapLoaded) showMapData();
             showDataTable();
-
             document.getElementById('statsSection').classList.remove('hidden');
             document.getElementById('mapSection').classList.remove('hidden');
             document.getElementById('dataSection').classList.remove('hidden');
@@ -724,70 +355,32 @@
 
         function showMapData() {
             if (!mapLoaded || missingData.length === 0) return;
-
             const validCoords = missingData.filter(d => !isNaN(d.lat) && !isNaN(d.lng));
             if (validCoords.length === 0) return;
 
-            const center = {
-                lat: validCoords.reduce((sum, d) => sum + d.lat, 0) / validCoords.length,
-                lng: validCoords.reduce((sum, d) => sum + d.lng, 0) / validCoords.length
-            };
+            const center = { lat: validCoords.reduce((s, d) => s + d.lat, 0) / validCoords.length, lng: validCoords.reduce((s, d) => s + d.lng, 0) / validCoords.length };
 
             if (!map) {
                 map = new google.maps.Map(document.getElementById('map'), {
-                    zoom: 12,
-                    center: center,
-                    mapTypeId: 'roadmap',
-                    styles: [{
-                        featureType: 'poi',
-                        elementType: 'labels',
-                        stylers: [{ visibility: 'off' }]
-                    }]
+                    zoom: 12, center, mapTypeId: 'roadmap',
+                    styles: [{ featureType: 'poi', elementType: 'labels', stylers: [{ visibility: 'off' }] }]
                 });
-            } else {
-                map.setCenter(center);
-            }
+            } else { map.setCenter(center); }
 
             markers.forEach(m => m.setMap(null));
             markers = [];
 
             validCoords.forEach(record => {
-                let color = '#e74c3c';
-                let title = '';
-
-                if (record.isNeighborhoodMissing && record.isStreetMissing) {
-                    color = '#9b59b6';
-                    title = 'حي وشارع مفقودان';
-                } else if (record.isStreetMissing) {
-                    color = '#3498db';
-                    title = `الحي: ${record.neighborhood} (شارع مفقود)`;
-                } else {
-                    title = `شارع: ${record.street} (حي مفقود)`;
-                }
+                let color = record.isNeighborhoodMissing && record.isStreetMissing ? '#9b59b6' : record.isStreetMissing ? '#3498db' : '#e74c3c';
+                let title = record.isNeighborhoodMissing && record.isStreetMissing ? 'حي وشارع مفقودان' : record.isStreetMissing ? `الحي: ${record.neighborhood} (شارع مفقود)` : `شارع: ${record.street} (حي مفقود)`;
 
                 const marker = new google.maps.Marker({
-                    position: { lat: record.lat, lng: record.lng },
-                    map: map,
-                    title: title,
-                    icon: {
-                        path: google.maps.SymbolPath.CIRCLE,
-                        scale: 10,
-                        fillColor: color,
-                        fillOpacity: 0.9,
-                        strokeColor: '#fff',
-                        strokeWeight: 2
-                    }
+                    position: { lat: record.lat, lng: record.lng }, map, title,
+                    icon: { path: google.maps.SymbolPath.CIRCLE, scale: 10, fillColor: color, fillOpacity: 0.9, strokeColor: '#fff', strokeWeight: 2 }
                 });
 
                 const infoWindow = new google.maps.InfoWindow({
-                    content: `
-                        <div style="padding: 10px; font-family: Cairo; direction: rtl; text-align: right;">
-                            <h3 style="margin: 0 0 10px 0; color: ${color};">سجل #${record.id}</h3>
-                            <p><strong>الإحداثيات:</strong> ${record.lat.toFixed(6)}, ${record.lng.toFixed(6)}</p>
-                            <p><strong>الحي:</strong> ${record.neighborhood || '<span style="color: red;">مفقود</span>'}</p>
-                            <p><strong>الشارع:</strong> ${record.street || '<span style="color: red;">مفقود</span>'}</p>
-                        </div>
-                    `
+                    content: `<div style="padding: 10px; font-family: Cairo; direction: rtl; text-align: right;"><h3 style="margin: 0 0 10px 0; color: ${color};">سجل #${record.id}</h3><p><strong>الإحداثيات:</strong> ${record.lat.toFixed(6)}, ${record.lng.toFixed(6)}</p><p><strong>الحي:</strong> ${record.neighborhood || '<span style="color: red;">مفقود</span>'}</p><p><strong>الشارع:</strong> ${record.street || '<span style="color: red;">مفقود</span>'}</p></div>`
                 });
 
                 marker.addListener('click', () => infoWindow.open(map, marker));
@@ -808,139 +401,68 @@
         }
 
         function updateStats() {
-            const missingNeighborhoods = missingData.filter(d => d.isNeighborhoodMissing).length;
-            const missingStreets = missingData.filter(d => d.isStreetMissing).length;
-
             document.getElementById('totalCount').textContent = allData.length;
-            document.getElementById('missingNeighborhoods').textContent = missingNeighborhoods;
-            document.getElementById('missingStreets').textContent = missingStreets;
+            document.getElementById('missingNeighborhoods').textContent = missingData.filter(d => d.isNeighborhoodMissing).length;
+            document.getElementById('missingStreets').textContent = missingData.filter(d => d.isStreetMissing).length;
             document.getElementById('totalMissing').textContent = missingData.length;
-        }
-
-        function showDataTable() {
-            renderTable(currentTab);
         }
 
         function showTab(tab) {
             currentTab = tab;
-
             ['all', 'neighborhoods', 'streets'].forEach(t => {
                 const btn = document.getElementById(`tab-${t}`);
-                if (t === tab) {
-                    btn.classList.add('text-blue-600', 'border-b-2', 'border-blue-600');
-                    btn.classList.remove('text-gray-500');
-                } else {
-                    btn.classList.remove('text-blue-600', 'border-b-2', 'border-blue-600');
-                    btn.classList.add('text-gray-500');
-                }
+                btn.className = t === tab ? 'px-4 py-2 font-semibold text-blue-600 border-b-2 border-blue-600 transition' : 'px-4 py-2 font-semibold text-gray-500 hover:text-blue-600 transition';
             });
-
             renderTable(tab);
         }
 
         function renderTable(tab) {
             const tbody = document.getElementById('dataTableBody');
             tbody.innerHTML = '';
-
-            let filteredData = missingData;
-            if (tab === 'neighborhoods') filteredData = missingData.filter(d => d.isNeighborhoodMissing);
-            else if (tab === 'streets') filteredData = missingData.filter(d => d.isStreetMissing);
+            let filteredData = tab === 'all' ? missingData : tab === 'neighborhoods' ? missingData.filter(d => d.isNeighborhoodMissing) : missingData.filter(d => d.isStreetMissing);
 
             filteredData.forEach(record => {
                 const row = document.createElement('tr');
                 row.className = 'border-b hover:bg-gray-50 transition';
-
-                let statusHtml = '';
-                if (record.isNeighborhoodMissing && record.isStreetMissing) {
-                    statusHtml = '<span class="badge badge-missing">حي وشارع مفقودان</span>';
-                } else if (record.isNeighborhoodMissing) {
-                    statusHtml = '<span class="badge badge-missing">حي مفقود</span>';
-                } else {
-                    statusHtml = '<span class="badge badge-missing">شارع مفقود</span>';
-                }
-
-                row.innerHTML = `
-                    <td class="p-3 font-semibold">${record.id}</td>
-                    <td class="p-3 font-mono text-xs">${record.lat.toFixed(6)}</td>
-                    <td class="p-3 font-mono text-xs">${record.lng.toFixed(6)}</td>
-                    <td class="p-3 ${record.isNeighborhoodMissing ? 'text-red-500 font-bold' : ''}">${record.neighborhood || '—'}</td>
-                    <td class="p-3 ${record.isStreetMissing ? 'text-red-500 font-bold' : ''}">${record.street || '—'}</td>
-                    <td class="p-3">${statusHtml}</td>
-                `;
+                let statusHtml = record.isNeighborhoodMissing && record.isStreetMissing ? '<span class="badge badge-missing">حي وشارع مفقودان</span>' : record.isNeighborhoodMissing ? '<span class="badge badge-missing">حي مفقود</span>' : '<span class="badge badge-missing">شارع مفقود</span>';
+                row.innerHTML = `<td class="p-3 font-semibold">${record.id}</td><td class="p-3 font-mono text-xs">${record.lat.toFixed(6)}</td><td class="p-3 font-mono text-xs">${record.lng.toFixed(6)}</td><td class="p-3 ${record.isNeighborhoodMissing ? 'text-red-500 font-bold' : ''}">${record.neighborhood || '—'}</td><td class="p-3 ${record.isStreetMissing ? 'text-red-500 font-bold' : ''}">${record.street || '—'}</td><td class="p-3">${statusHtml}</td>`;
                 tbody.appendChild(row);
             });
 
-            if (filteredData.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="6" class="p-8 text-center text-gray-500">لا توجد بيانات مفقودة في هذا القسم</td></tr>`;
-            }
+            if (filteredData.length === 0) tbody.innerHTML = '<tr><td colspan="6" class="p-8 text-center text-gray-500">لا توجد بيانات مفقودة في هذا القسم</td></tr>';
         }
 
         function exportMissingData() {
-            if (missingData.length === 0) {
-                alert('لا توجد بيانات مفقودة للتصدير!');
-                return;
-            }
-
-            const exportData = missingData.map(record => ({
-                'رقم السجل': record.id,
-                'خط العرض': record.lat,
-                'خط الطول': record.lng,
-                'الحي': record.neighborhood || 'مفقود',
-                'الشارع': record.street || 'مفقود',
-                'حالة الحي': record.isNeighborhoodMissing ? 'مفقود' : 'موجود',
-                'حالة الشارع': record.isStreetMissing ? 'مفقود' : 'موجود',
-                'ملاحظات': record.isNeighborhoodMissing && record.isStreetMissing ? 'الحي والشارع مفقودان' : 
-                          record.isNeighborhoodMissing ? 'الحي مفقود' : 'الشارع مفقود'
-            }));
-
+            if (missingData.length === 0) { alert('لا توجد بيانات مفقودة للتصدير!'); return; }
+            const exportData = missingData.map(r => ({ 'رقم السجل': r.id, 'خط العرض': r.lat, 'خط الطول': r.lng, 'الحي': r.neighborhood || 'مفقود', 'الشارع': r.street || 'مفقود', 'حالة الحي': r.isNeighborhoodMissing ? 'مفقود' : 'موجود', 'حالة الشارع': r.isStreetMissing ? 'مفقود' : 'موجود', 'ملاحظات': r.isNeighborhoodMissing && r.isStreetMissing ? 'الحي والشارع مفقودان' : r.isNeighborhoodMissing ? 'الحي مفقود' : 'الشارع مفقود' }));
             const wb = XLSX.utils.book_new();
             const ws = XLSX.utils.json_to_sheet(exportData);
-
-            ws['!cols'] = [
-                { wch: 12 }, { wch: 15 }, { wch: 15 }, { wch: 25 }, 
-                { wch: 25 }, { wch: 12 }, { wch: 12 }, { wch: 30 }
-            ];
-
+            ws['!cols'] = [{ wch: 12 }, { wch: 15 }, { wch: 15 }, { wch: 25 }, { wch: 25 }, { wch: 12 }, { wch: 12 }, { wch: 30 }];
             XLSX.utils.book_append_sheet(wb, ws, 'البيانات المفقودة');
-
-            const date = new Date().toISOString().split('T')[0];
-            XLSX.writeFile(wb, `البيانات_المفقودة_${date}.xlsx`);
-
-            showNotification('تم تصدير البيانات المفقودة بنجاح! ✅');
+            XLSX.writeFile(wb, `البيانات_المفقودة_${new Date().toISOString().split('T')[0]}.xlsx`);
+            showNotification('تم تصدير البيانات بنجاح! ✅');
         }
 
         function showNotification(message) {
-            const notification = document.createElement('div');
-            notification.className = 'fixed top-4 left-1/2 transform -translate-x-1/2 bg-green-500 text-white px-6 py-3 rounded-full shadow-lg z-50 animate-bounce';
-            notification.textContent = message;
-            document.body.appendChild(notification);
-            setTimeout(() => notification.remove(), 3000);
+            const n = document.createElement('div');
+            n.className = 'fixed top-4 left-1/2 transform -translate-x-1/2 bg-green-500 text-white px-6 py-3 rounded-full shadow-lg z-50 animate-bounce';
+            n.textContent = message;
+            document.body.appendChild(n);
+            setTimeout(() => n.remove(), 3000);
         }
 
         function resetData() {
-            allData = [];
-            missingData = [];
-
+            allData = []; missingData = [];
             document.getElementById('fileInput').value = '';
             document.getElementById('fileInfo').classList.add('hidden');
             document.getElementById('statsSection').classList.add('hidden');
             document.getElementById('mapSection').classList.add('hidden');
             document.getElementById('dataSection').classList.add('hidden');
-
-            if (map) {
-                markers.forEach(m => m.setMap(null));
-                markers = [];
-                map = null;
-            }
+            if (map) { markers.forEach(m => m.setMap(null)); markers = []; map = null; }
         }
 
         // Initialize
-        document.addEventListener('DOMContentLoaded', function() {
-            loadUsageData();
-            setupEventListeners();
-            // Load map immediately
-            loadGoogleMaps();
-        });
+        document.addEventListener('DOMContentLoaded', () => { loadUsageData(); setupEventListeners(); });
     </script>
 
 </body>
