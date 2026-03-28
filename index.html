@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>تحليل بيانات الأحياء والشوارع</title>
+    <title>تحليل بيانات الأحياء والشوارع - مع استخراج الأسماء</title>
 
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
@@ -23,10 +23,40 @@
         .stat-card { background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); }
         .stat-card.blue { background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); }
         .stat-card.green { background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%); }
+        .stat-card.orange { background: linear-gradient(135deg, #fa709a 0%, #fee140 100%); }
         #map { height: 500px; width: 100%; border-radius: 12px; z-index: 1; }
         .data-table { max-height: 300px; overflow-y: auto; }
         .badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 600; }
         .badge-missing { background: #fee2e2; color: #dc2626; }
+        .badge-found { background: #d1fae5; color: #059669; }
+        .badge-pending { background: #fef3c7; color: #d97706; }
+
+        .progress-container {
+            background: #f3f4f6;
+            border-radius: 8px;
+            padding: 16px;
+            margin: 16px 0;
+            display: none;
+        }
+        .progress-container.show { display: block; }
+        .progress-bar-main {
+            height: 20px;
+            background: #e5e7eb;
+            border-radius: 10px;
+            overflow: hidden;
+            margin-top: 8px;
+        }
+        .progress-fill-main {
+            height: 100%;
+            background: linear-gradient(90deg, #3b82f6, #8b5cf6);
+            transition: width 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 12px;
+            font-weight: bold;
+        }
 
         .usage-monitor {
             position: fixed; top: 20px; left: 20px; background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
@@ -36,18 +66,55 @@
         .usage-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
         .usage-stat-value { font-size: 24px; font-weight: 700; display: block; }
         .usage-stat-label { font-size: 11px; opacity: 0.7; }
-        .progress-bar { height: 8px; background: rgba(255,255,255,0.1); border-radius: 4px; overflow: hidden; margin-bottom: 12px; }
-        .progress-fill { height: 100%; border-radius: 4px; transition: width 0.5s ease; }
-        .progress-fill.high { background: linear-gradient(90deg, #22c55e, #16a34a); }
-        .progress-fill.medium { background: linear-gradient(90deg, #eab308, #ca8a04); }
-        .progress-fill.low { background: linear-gradient(90deg, #ef4444, #dc2626); }
         .usage-btn { flex: 1; padding: 6px 10px; border: none; border-radius: 6px; font-size: 11px; cursor: pointer; font-weight: 600; }
         .usage-btn.primary { background: #3b82f6; color: white; }
         .usage-btn.secondary { background: rgba(255,255,255,0.1); color: white; }
+        .usage-btn.success { background: #10b981; color: white; }
         .usage-settings { display: none; margin-top: 12px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,0.1); }
         .usage-settings.show { display: block; }
-        .setting-input { width: 80px; padding: 4px 8px; border: 1px solid rgba(255,255,255,0.2); border-radius: 4px; background: rgba(255,255,255,0.1); color: white; font-size: 12px; text-align: center; }
-        .map-loading { display: flex; align-items: center; justify-content: center; height: 100%; color: #6b7280; font-size: 16px; flex-direction: column; background: #f3f4f6; border-radius: 12px; }
+
+        .action-btn {
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            border: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .action-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        .action-btn.primary { background: #3b82f6; color: white; }
+        .action-btn.primary:hover:not(:disabled) { background: #2563eb; }
+        .action-btn.success { background: #10b981; color: white; }
+        .action-btn.success:hover:not(:disabled) { background: #059669; }
+        .action-btn.warning { background: #f59e0b; color: white; }
+        .action-btn.warning:hover:not(:disabled) { background: #d97706; }
+
+        .info-box {
+            background: #eff6ff;
+            border: 1px solid #3b82f6;
+            border-radius: 8px;
+            padding: 12px;
+            margin: 12px 0;
+            font-size: 14px;
+        }
+
+        .result-card {
+            background: white;
+            border-radius: 12px;
+            padding: 16px;
+            margin: 8px 0;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            border-right: 4px solid #3b82f6;
+        }
+        .result-card.success { border-right-color: #10b981; }
+        .result-card.error { border-right-color: #ef4444; }
+        .result-card.pending { border-right-color: #f59e0b; }
     </style>
 </head>
 <body class="bg-gray-100 min-h-screen">
@@ -56,42 +123,40 @@
     <div class="usage-monitor" id="usageMonitor">
         <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px; font-size: 14px; font-weight: 600;">
             <span>📊</span>
-            <span>مراقب الاستخدام</span>
+            <span>الإحصائيات</span>
         </div>
         <div class="usage-stats">
             <div style="text-align: center;">
-                <span class="usage-stat-value" id="fileCount">0</span>
-                <span class="usage-stat-label">ملفات</span>
+                <span class="usage-stat-value" id="totalRecords">0</span>
+                <span class="usage-stat-label">إجمالي</span>
             </div>
             <div style="text-align: center;">
-                <span class="usage-stat-value" id="recordCount">0</span>
-                <span class="usage-stat-label">سجلات</span>
+                <span class="usage-stat-value" id="processedRecords">0</span>
+                <span class="usage-stat-label">تم معالجته</span>
             </div>
         </div>
-        <div style="font-size: 11px; opacity: 0.6; text-align: center;">
-            الخريطة مجانية 100% ✅
-        </div>
         <div style="display: flex; gap: 8px; margin-top: 12px;">
-            <button class="usage-btn secondary" onclick="resetAll()">إعادة تعيين</button>
+            <button class="usage-btn secondary" onclick="resetAll()">إعادة</button>
             <button class="usage-btn primary" onclick="toggleSettings()">الإعدادات</button>
         </div>
         <div class="usage-settings" id="usageSettings">
             <div style="font-size: 12px; text-align: center; opacity: 0.8;">
-                لا حاجة لـ API Key<br>
-                Leaflet خريطة مفتوحة المصدر
+                استخراج الأسماء من OpenStreetMap<br>
+                مجاني 100% ✅
             </div>
         </div>
     </div>
 
     <header class="gradient-bg text-white py-6 shadow-lg">
         <div class="container mx-auto px-4">
-            <h1 class="text-3xl font-bold text-center">📍 نظام تحليل الأحياء والشوارع</h1>
-            <p class="text-center mt-2 text-white/80">رفع ملف Excel - عرض على الخريطة - تصدير البيانات المفقودة</p>
+            <h1 class="text-3xl font-bold text-center">📍 نظام استخراج أسماء الأحياء والشوارع</h1>
+            <p class="text-center mt-2 text-white/80">رفع ملف Excel - استخراج الأسماء من الخريطة - تصدير النتائج</p>
         </div>
     </header>
 
     <div class="container mx-auto px-4 py-8" style="margin-top: 80px;">
 
+        <!-- Upload Section -->
         <div class="glass-panel rounded-2xl p-8 mb-6 shadow-xl">
             <h2 class="text-2xl font-bold text-gray-800 mb-6 flex items-center">
                 <span class="bg-blue-500 text-white rounded-full w-8 h-8 flex items-center justify-center ml-3 text-sm">1</span>
@@ -103,7 +168,7 @@
                 <div class="text-6xl mb-4">📊</div>
                 <h3 class="text-xl font-semibold text-gray-700 mb-2">اسحب الملف هنا أو انقر للاختيار</h3>
                 <p class="text-gray-500">يدعم ملفات Excel (.xlsx, .xls) و CSV</p>
-                <p class="text-sm text-gray-400 mt-2">يجب أن يحتوي الملف على: الإحداثيات، الأحياء، الشوارع</p>
+                <p class="text-sm text-gray-400 mt-2">يجب أن يحتوي على: خط العرض، خط الطول، الحي (اختياري)، الشارع (اختياري)</p>
             </div>
 
             <div id="fileInfo" class="hidden mt-4 p-4 bg-green-50 border border-green-200 rounded-lg">
@@ -120,6 +185,7 @@
             </div>
         </div>
 
+        <!-- Statistics -->
         <div id="statsSection" class="hidden grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
             <div class="stat-card blue rounded-xl p-6 text-white shadow-lg">
                 <div class="text-3xl font-bold" id="totalCount">0</div>
@@ -133,43 +199,73 @@
                 <div class="text-3xl font-bold" id="missingStreets">0</div>
                 <div class="text-sm opacity-90">شوارع مفقودة</div>
             </div>
-            <div class="bg-gradient-to-r from-purple-500 to-pink-500 rounded-xl p-6 text-white shadow-lg">
-                <div class="text-3xl font-bold" id="totalMissing">0</div>
-                <div class="text-sm opacity-90">إجمالي المفقود</div>
+            <div class="stat-card orange rounded-xl p-6 text-white shadow-lg">
+                <div class="text-3xl font-bold" id="foundNames">0</div>
+                <div class="text-sm opacity-90">تم استخراجه</div>
             </div>
         </div>
 
+        <!-- Action Buttons -->
+        <div id="actionSection" class="hidden glass-panel rounded-2xl p-6 mb-6 shadow-xl">
+            <h2 class="text-2xl font-bold text-gray-800 mb-4 flex items-center">
+                <span class="bg-purple-500 text-white rounded-full w-8 h-8 flex items-center justify-center ml-3 text-sm">2</span>
+                استخراج الأسماء من الخريطة
+            </h2>
+
+            <div class="info-box">
+                <strong>💡 كيف يعمل:</strong><br>
+                سيتم البحث عن كل إحداثية في خريطة OpenStreetMap لاستخراج اسم الحي والشارع الحقيقي.<br>
+                هذه العملية قد تستغرق وقتًا حسب عدد السجلات (كل سجل يحتاج ثانية تقريبًا).
+            </div>
+
+            <div class="flex flex-wrap gap-4 mt-4">
+                <button onclick="startExtraction()" id="extractBtn" class="action-btn success">
+                    <span>🔍</span>
+                    <span>بدء الاستخراج</span>
+                </button>
+                <button onclick="exportResults()" id="exportBtn" class="action-btn primary" disabled>
+                    <span>📥</span>
+                    <span>تصدير النتائج</span>
+                </button>
+            </div>
+
+            <!-- Progress Bar -->
+            <div class="progress-container" id="progressContainer">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                    <span id="progressText">جاري الاستخراج...</span>
+                    <span id="progressPercent">0%</span>
+                </div>
+                <div class="progress-bar-main">
+                    <div class="progress-fill-main" id="progressBar" style="width: 0%">0%</div>
+                </div>
+                <div style="font-size: 12px; color: #6b7280; margin-top: 8px;" id="progressDetail">
+                    انتظر من فضلك...
+                </div>
+            </div>
+        </div>
+
+        <!-- Map Section -->
         <div id="mapSection" class="hidden glass-panel rounded-2xl p-6 mb-6 shadow-xl">
             <h2 class="text-2xl font-bold text-gray-800 mb-4 flex items-center">
-                <span class="bg-green-500 text-white rounded-full w-8 h-8 flex items-center justify-center ml-3 text-sm">2</span>
+                <span class="bg-green-500 text-white rounded-full w-8 h-8 flex items-center justify-center ml-3 text-sm">3</span>
                 عرض البيانات على الخريطة
             </h2>
 
             <div class="flex flex-wrap gap-4 mb-4 text-sm">
-                <div class="flex items-center"><span class="w-4 h-4 rounded-full bg-red-500 ml-2"></span><span>حي مفقود فقط</span></div>
-                <div class="flex items-center"><span class="w-4 h-4 rounded-full bg-blue-500 ml-2"></span><span>شارع مفقود فقط</span></div>
-                <div class="flex items-center"><span class="w-4 h-4 rounded-full bg-purple-500 ml-2"></span><span>الاثنان مفقودان</span></div>
+                <div class="flex items-center"><span class="w-4 h-4 rounded-full bg-red-500 ml-2"></span><span>مفقود (قبل الاستخراج)</span></div>
+                <div class="flex items-center"><span class="w-4 h-4 rounded-full bg-green-500 ml-2"></span><span>تم العثور عليه</span></div>
+                <div class="flex items-center"><span class="w-4 h-4 rounded-full bg-yellow-500 ml-2"></span><span>قيد المعالجة</span></div>
             </div>
 
             <div id="map"></div>
         </div>
 
-        <div id="dataSection" class="hidden glass-panel rounded-2xl p-6 shadow-xl">
-            <div class="flex flex-col md:flex-row justify-between items-center mb-6">
-                <h2 class="text-2xl font-bold text-gray-800 flex items-center">
-                    <span class="bg-purple-500 text-white rounded-full w-8 h-8 flex items-center justify-center ml-3 text-sm">3</span>
-                    البيانات المفقودة
-                </h2>
-                <button onclick="exportMissingData()" class="mt-4 md:mt-0 px-6 py-3 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-xl font-semibold shadow-lg hover:shadow-xl transform hover:-translate-y-1 transition flex items-center">
-                    <span class="ml-2">📥</span>تصدير Excel (المفقود فقط)
-                </button>
-            </div>
-
-            <div class="flex gap-2 mb-4 border-b">
-                <button onclick="showTab('all')" id="tab-all" class="px-4 py-2 font-semibold text-blue-600 border-b-2 border-blue-600 transition">الكل</button>
-                <button onclick="showTab('neighborhoods')" id="tab-neighborhoods" class="px-4 py-2 font-semibold text-gray-500 hover:text-blue-600 transition">أحياء مفقودة</button>
-                <button onclick="showTab('streets')" id="tab-streets" class="px-4 py-2 font-semibold text-gray-500 hover:text-blue-600 transition">شوارع مفقودة</button>
-            </div>
+        <!-- Results Table -->
+        <div id="resultsSection" class="hidden glass-panel rounded-2xl p-6 shadow-xl">
+            <h2 class="text-2xl font-bold text-gray-800 mb-4 flex items-center">
+                <span class="bg-orange-500 text-white rounded-full w-8 h-8 flex items-center justify-center ml-3 text-sm">4</span>
+                النتائج
+            </h2>
 
             <div class="data-table">
                 <table class="w-full text-right">
@@ -178,12 +274,14 @@
                             <th class="p-3 text-sm font-bold text-gray-700">#</th>
                             <th class="p-3 text-sm font-bold text-gray-700">خط العرض</th>
                             <th class="p-3 text-sm font-bold text-gray-700">خط الطول</th>
-                            <th class="p-3 text-sm font-bold text-gray-700">الحي</th>
-                            <th class="p-3 text-sm font-bold text-gray-700">الشارع</th>
+                            <th class="p-3 text-sm font-bold text-gray-700">الحي الأصلي</th>
+                            <th class="p-3 text-sm font-bold text-gray-700">الحي المستخرج</th>
+                            <th class="p-3 text-sm font-bold text-gray-700">الشارع الأصلي</th>
+                            <th class="p-3 text-sm font-bold text-gray-700">الشارع المستخرج</th>
                             <th class="p-3 text-sm font-bold text-gray-700">الحالة</th>
                         </tr>
                     </thead>
-                    <tbody id="dataTableBody" class="text-sm"></tbody>
+                    <tbody id="resultsTableBody" class="text-sm"></tbody>
                 </table>
             </div>
         </div>
@@ -195,91 +293,10 @@
         // DATA STORAGE
         // ============================================
         let allData = [];
-        let missingData = [];
-        let currentTab = 'all';
+        let processedData = [];
         let map = null;
         let markers = [];
-        let fileCounter = 0;
-
-        // ============================================
-        // USAGE MONITOR
-        // ============================================
-        function updateUsageStats() {
-            document.getElementById('fileCount').textContent = fileCounter;
-            document.getElementById('recordCount').textContent = allData.length.toLocaleString();
-        }
-
-        function toggleSettings() { 
-            document.getElementById('usageSettings').classList.toggle('show'); 
-        }
-
-        function resetAll() {
-            if (confirm('هل أنت متأكد من إعادة تعيين كل شيء؟')) {
-                resetData();
-                fileCounter = 0;
-                updateUsageStats();
-                showNotification('✅ تم إعادة التعيين');
-            }
-        }
-
-        // ============================================
-        // LEAFLET MAP
-        // ============================================
-        function initMap() {
-            if (map) return;
-
-            // Initialize map centered on Saudi Arabia
-            map = L.map('map').setView([24.7136, 46.6753], 5);
-
-            // Add OpenStreetMap tiles (FREE)
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                attribution: '© OpenStreetMap contributors',
-                maxZoom: 19
-            }).addTo(map);
-        }
-
-        function showMapData() {
-            if (!map) initMap();
-
-            // Clear existing markers
-            markers.forEach(m => map.removeLayer(m));
-            markers = [];
-
-            const validCoords = missingData.filter(d => !isNaN(d.lat) && !isNaN(d.lng));
-            if (validCoords.length === 0) return;
-
-            // Add markers
-            validCoords.forEach(record => {
-                let color = record.isNeighborhoodMissing && record.isStreetMissing ? '#9b59b6' : 
-                           record.isStreetMissing ? '#3498db' : '#e74c3c';
-
-                let popupContent = `
-                    <div style="font-family: Cairo; direction: rtl; text-align: right;">
-                        <h3 style="margin: 0 0 10px 0; color: ${color};">سجل #${record.id}</h3>
-                        <p><strong>الإحداثيات:</strong> ${record.lat.toFixed(6)}, ${record.lng.toFixed(6)}</p>
-                        <p><strong>الحي:</strong> ${record.neighborhood || '<span style="color: red;">مفقود</span>'}</p>
-                        <p><strong>الشارع:</strong> ${record.street || '<span style="color: red;">مفقود</span>'}</p>
-                    </div>
-                `;
-
-                const marker = L.circleMarker([record.lat, record.lng], {
-                    radius: 8,
-                    fillColor: color,
-                    color: '#fff',
-                    weight: 2,
-                    opacity: 1,
-                    fillOpacity: 0.9
-                }).addTo(map).bindPopup(popupContent);
-
-                markers.push(marker);
-            });
-
-            // Fit bounds
-            if (markers.length > 0) {
-                const group = new L.featureGroup(markers);
-                map.fitBounds(group.getBounds().pad(0.1));
-            }
-        }
+        let isProcessing = false;
 
         // ============================================
         // FILE HANDLING
@@ -312,7 +329,6 @@
                     const jsonData = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]]);
                     if (jsonData.length === 0) { alert('الملف فارغ!'); return; }
 
-                    fileCounter++;
                     parseData(jsonData, file.name);
                 } catch (error) { 
                     alert('خطأ في قراءة الملف: ' + error.message); 
@@ -322,129 +338,273 @@
         }
 
         function parseData(data, filename) {
+            allData = [];
+            processedData = [];
+
             const columns = Object.keys(data[0]);
 
             let latCol = columns.find(c => c.toLowerCase().includes('lat') || c.includes('خط العرض') || c.includes('latitude')) || columns[0];
             let lngCol = columns.find(c => c.toLowerCase().includes('lng') || c.toLowerCase().includes('lon') || c.includes('خط الطول') || c.includes('longitude')) || columns[1];
-            let neighborhoodCol = columns.find(c => c.includes('حي') || c.includes('neighborhood') || c.includes('district')) || columns[2] || columns[0];
-            let streetCol = columns.find(c => c.includes('شارع') || c.includes('street')) || columns[3] || columns[1];
+            let neighborhoodCol = columns.find(c => c.includes('حي') || c.includes('neighborhood') || c.includes('district')) || columns[2];
+            let streetCol = columns.find(c => c.includes('شارع') || c.includes('street')) || columns[3];
 
             data.forEach((row, index) => {
                 const lat = parseFloat(row[latCol]);
                 const lng = parseFloat(row[lngCol]);
-                const neighborhood = row[neighborhoodCol] ? String(row[neighborhoodCol]).trim() : '';
-                const street = row[streetCol] ? String(row[streetCol]).trim() : '';
+                const neighborhood = neighborhoodCol ? (row[neighborhoodCol] ? String(row[neighborhoodCol]).trim() : '') : '';
+                const street = streetCol ? (row[streetCol] ? String(row[streetCol]).trim() : '') : '';
 
                 if (!isNaN(lat) && !isNaN(lng)) {
-                    const isNeighborhoodMissing = !neighborhood || neighborhood === '' || neighborhood === 'null';
-                    const isStreetMissing = !street || street === '' || street === 'null';
-
-                    const record = { 
-                        id: allData.length + 1, 
-                        lat, 
-                        lng, 
-                        neighborhood: isNeighborhoodMissing ? '' : neighborhood, 
-                        street: isStreetMissing ? '' : street, 
-                        isNeighborhoodMissing, 
-                        isStreetMissing, 
-                        isMissing: isNeighborhoodMissing || isStreetMissing 
-                    };
-
-                    allData.push(record);
-                    if (record.isMissing) missingData.push(record);
+                    allData.push({
+                        id: index + 1,
+                        lat,
+                        lng,
+                        originalNeighborhood: neighborhood,
+                        originalStreet: street,
+                        extractedNeighborhood: '',
+                        extractedStreet: '',
+                        status: 'pending'
+                    });
                 }
             });
 
             updateFileInfo(filename);
             updateStats();
-            updateUsageStats();
-            showMapData();
-            renderTable(currentTab);
+            initMap();
+            showDataOnMap();
 
+            document.getElementById('fileInfo').classList.remove('hidden');
             document.getElementById('statsSection').classList.remove('hidden');
+            document.getElementById('actionSection').classList.remove('hidden');
             document.getElementById('mapSection').classList.remove('hidden');
-            document.getElementById('dataSection').classList.remove('hidden');
+            document.getElementById('resultsSection').classList.remove('hidden');
+
+            renderResultsTable();
         }
 
         function updateFileInfo(filename) {
             document.getElementById('fileName').textContent = filename;
             document.getElementById('fileStats').textContent = `تم استيراد ${allData.length} سجل صالح`;
-            document.getElementById('fileInfo').classList.remove('hidden');
+            document.getElementById('totalRecords').textContent = allData.length;
         }
 
         function updateStats() {
+            const missingNeighborhoods = allData.filter(d => !d.originalNeighborhood || d.originalNeighborhood === '' || d.originalNeighborhood === 'null').length;
+            const missingStreets = allData.filter(d => !d.originalStreet || d.originalStreet === '' || d.originalStreet === 'null').length;
+            const found = allData.filter(d => d.status === 'completed').length;
+
             document.getElementById('totalCount').textContent = allData.length;
-            document.getElementById('missingNeighborhoods').textContent = missingData.filter(d => d.isNeighborhoodMissing).length;
-            document.getElementById('missingStreets').textContent = missingData.filter(d => d.isStreetMissing).length;
-            document.getElementById('totalMissing').textContent = missingData.length;
+            document.getElementById('missingNeighborhoods').textContent = missingNeighborhoods;
+            document.getElementById('missingStreets').textContent = missingStreets;
+            document.getElementById('foundNames').textContent = found;
+            document.getElementById('processedRecords').textContent = found;
         }
 
-        function showTab(tab) {
-            currentTab = tab;
-            ['all', 'neighborhoods', 'streets'].forEach(t => {
-                const btn = document.getElementById(`tab-${t}`);
-                btn.className = t === tab ? 'px-4 py-2 font-semibold text-blue-600 border-b-2 border-blue-600 transition' : 'px-4 py-2 font-semibold text-gray-500 hover:text-blue-600 transition';
+        // ============================================
+        // LEAFLET MAP
+        // ============================================
+        function initMap() {
+            if (map) return;
+
+            map = L.map('map').setView([24.7136, 46.6753], 5);
+
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap contributors',
+                maxZoom: 19
+            }).addTo(map);
+        }
+
+        function showDataOnMap() {
+            markers.forEach(m => map.removeLayer(m));
+            markers = [];
+
+            allData.forEach(record => {
+                let color = record.status === 'completed' ? '#10b981' : 
+                           record.status === 'processing' ? '#f59e0b' : '#ef4444';
+
+                const marker = L.circleMarker([record.lat, record.lng], {
+                    radius: 6,
+                    fillColor: color,
+                    color: '#fff',
+                    weight: 2,
+                    opacity: 1,
+                    fillOpacity: 0.9
+                }).addTo(map);
+
+                const popupContent = `
+                    <div style="font-family: Cairo; direction: rtl; text-align: right;">
+                        <h3 style="margin: 0 0 10px 0;">سجل #${record.id}</h3>
+                        <p><strong>الإحداثيات:</strong> ${record.lat.toFixed(6)}, ${record.lng.toFixed(6)}</p>
+                        <p><strong>الحي الأصلي:</strong> ${record.originalNeighborhood || '—'}</p>
+                        <p><strong>الشارع الأصلي:</strong> ${record.originalStreet || '—'}</p>
+                        ${record.extractedNeighborhood ? `<p><strong>الحي المستخرج:</strong> ${record.extractedNeighborhood}</p>` : ''}
+                        ${record.extractedStreet ? `<p><strong>الشارع المستخرج:</strong> ${record.extractedStreet}</p>` : ''}
+                        <p><strong>الحالة:</strong> ${getStatusText(record.status)}</p>
+                    </div>
+                `;
+
+                marker.bindPopup(popupContent);
+                markers.push(marker);
             });
-            renderTable(tab);
+
+            if (markers.length > 0) {
+                const group = new L.featureGroup(markers);
+                map.fitBounds(group.getBounds().pad(0.1));
+            }
         }
 
-        function renderTable(tab) {
-            const tbody = document.getElementById('dataTableBody');
+        function getStatusText(status) {
+            switch(status) {
+                case 'completed': return '✅ تم الاستخراج';
+                case 'processing': return '⏳ قيد المعالجة';
+                case 'error': return '❌ خطأ';
+                default: return '⏸️ في الانتظار';
+            }
+        }
+
+        // ============================================
+        // REVERSE GEOCODING
+        // ============================================
+        async function startExtraction() {
+            if (isProcessing) return;
+
+            isProcessing = true;
+            document.getElementById('extractBtn').disabled = true;
+            document.getElementById('progressContainer').classList.add('show');
+
+            const pendingRecords = allData.filter(r => r.status === 'pending');
+            const total = pendingRecords.length;
+
+            for (let i = 0; i < pendingRecords.length; i++) {
+                const record = pendingRecords[i];
+                const index = allData.indexOf(record);
+
+                // Update progress
+                const percent = Math.round(((i + 1) / total) * 100);
+                document.getElementById('progressBar').style.width = percent + '%';
+                document.getElementById('progressBar').textContent = percent + '%';
+                document.getElementById('progressPercent').textContent = percent + '%';
+                document.getElementById('progressDetail').textContent = `جاري معالجة سجل ${i + 1} من ${total}...`;
+
+                // Update status
+                record.status = 'processing';
+                updateMarkerColor(index, '#f59e0b');
+
+                try {
+                    // Call Nominatim API with delay to avoid rate limiting
+                    await new Promise(resolve => setTimeout(resolve, 1100)); // 1.1 second delay
+
+                    const result = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${record.lat}&lon=${record.lng}&zoom=18&addressdetails=1&accept-language=ar`)
+                        .then(res => res.json());
+
+                    if (result && result.address) {
+                        const addr = result.address;
+
+                        // Extract neighborhood (suburb, neighbourhood, district)
+                        record.extractedNeighborhood = addr.suburb || addr.neighbourhood || addr.district || addr.city || addr.town || addr.village || '';
+
+                        // Extract street (road, street, path)
+                        record.extractedStreet = addr.road || addr.street || addr.path || addr.pedestrian || '';
+
+                        record.status = 'completed';
+                        updateMarkerColor(index, '#10b981');
+                    } else {
+                        record.status = 'error';
+                        updateMarkerColor(index, '#6b7280');
+                    }
+                } catch (error) {
+                    console.error('Error:', error);
+                    record.status = 'error';
+                    updateMarkerColor(index, '#6b7280');
+                }
+
+                updateStats();
+                renderResultsTable();
+            }
+
+            // Complete
+            document.getElementById('progressText').textContent = 'تم الاستخراج بنجاح!';
+            document.getElementById('progressDetail').textContent = `تم معالجة ${total} سجل`;
+            document.getElementById('exportBtn').disabled = false;
+            isProcessing = false;
+
+            showNotification('✅ تم استخراج الأسماء بنجاح!');
+        }
+
+        function updateMarkerColor(index, color) {
+            if (markers[index]) {
+                markers[index].setStyle({ fillColor: color });
+            }
+        }
+
+        // ============================================
+        // RESULTS TABLE
+        // ============================================
+        function renderResultsTable() {
+            const tbody = document.getElementById('resultsTableBody');
             tbody.innerHTML = '';
 
-            let filteredData = tab === 'all' ? missingData : 
-                              tab === 'neighborhoods' ? missingData.filter(d => d.isNeighborhoodMissing) : 
-                              missingData.filter(d => d.isStreetMissing);
-
-            filteredData.forEach(record => {
+            allData.forEach(record => {
                 const row = document.createElement('tr');
                 row.className = 'border-b hover:bg-gray-50 transition';
-                let statusHtml = record.isNeighborhoodMissing && record.isStreetMissing ? 
-                    '<span class="badge badge-missing">حي وشارع مفقودان</span>' : 
-                    record.isNeighborhoodMissing ? '<span class="badge badge-missing">حي مفقود</span>' : 
-                    '<span class="badge badge-missing">شارع مفقود</span>';
+
+                let statusBadge = '';
+                if (record.status === 'completed') {
+                    statusBadge = '<span class="badge badge-found">✅ تم العثور</span>';
+                } else if (record.status === 'processing') {
+                    statusBadge = '<span class="badge badge-pending">⏳ قيد المعالجة</span>';
+                } else if (record.status === 'error') {
+                    statusBadge = '<span class="badge badge-missing">❌ خطأ</span>';
+                } else {
+                    statusBadge = '<span class="badge badge-missing">⏸️ في الانتظار</span>';
+                }
 
                 row.innerHTML = `
                     <td class="p-3 font-semibold">${record.id}</td>
                     <td class="p-3 font-mono text-xs">${record.lat.toFixed(6)}</td>
                     <td class="p-3 font-mono text-xs">${record.lng.toFixed(6)}</td>
-                    <td class="p-3 ${record.isNeighborhoodMissing ? 'text-red-500 font-bold' : ''}">${record.neighborhood || '—'}</td>
-                    <td class="p-3 ${record.isStreetMissing ? 'text-red-500 font-bold' : ''}">${record.street || '—'}</td>
-                    <td class="p-3">${statusHtml}</td>
+                    <td class="p-3 ${!record.originalNeighborhood ? 'text-red-500' : ''}">${record.originalNeighborhood || '—'}</td>
+                    <td class="p-3 ${record.extractedNeighborhood ? 'text-green-600 font-bold' : 'text-gray-400'}">${record.extractedNeighborhood || '—'}</td>
+                    <td class="p-3 ${!record.originalStreet ? 'text-red-500' : ''}">${record.originalStreet || '—'}</td>
+                    <td class="p-3 ${record.extractedStreet ? 'text-green-600 font-bold' : 'text-gray-400'}">${record.extractedStreet || '—'}</td>
+                    <td class="p-3">${statusBadge}</td>
                 `;
                 tbody.appendChild(row);
             });
-
-            if (filteredData.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="6" class="p-8 text-center text-gray-500">لا توجد بيانات مفقودة في هذا القسم</td></tr>';
-            }
         }
 
-        function exportMissingData() {
-            if (missingData.length === 0) { 
-                alert('لا توجد بيانات مفقودة للتصدير!'); 
-                return; 
-            }
-
-            const exportData = missingData.map(r => ({ 
-                'رقم السجل': r.id, 
-                'خط العرض': r.lat, 
-                'خط الطول': r.lng, 
-                'الحي': r.neighborhood || 'مفقود', 
-                'الشارع': r.street || 'مفقود', 
-                'حالة الحي': r.isNeighborhoodMissing ? 'مفقود' : 'موجود', 
-                'حالة الشارع': r.isStreetMissing ? 'مفقود' : 'موجود', 
-                'ملاحظات': r.isNeighborhoodMissing && r.isStreetMissing ? 'الحي والشارع مفقودان' : 
-                          r.isNeighborhoodMissing ? 'الحي مفقود' : 'الشارع مفقود' 
+        // ============================================
+        // EXPORT
+        // ============================================
+        function exportResults() {
+            const exportData = allData.map(r => ({
+                'رقم السجل': r.id,
+                'خط العرض': r.lat,
+                'خط الطول': r.lng,
+                'الحي الأصلي': r.originalNeighborhood || 'مفقود',
+                'الحي المستخرج': r.extractedNeighborhood || '—',
+                'الشارع الأصلي': r.originalStreet || 'مفقود',
+                'الشارع المستخرج': r.extractedStreet || '—',
+                'حالة الاستخراج': r.status === 'completed' ? 'تم العثور' : r.status === 'error' ? 'خطأ' : 'في الانتظار'
             }));
 
             const wb = XLSX.utils.book_new();
             const ws = XLSX.utils.json_to_sheet(exportData);
-            ws['!cols'] = [{ wch: 12 }, { wch: 15 }, { wch: 15 }, { wch: 25 }, { wch: 25 }, { wch: 12 }, { wch: 12 }, { wch: 30 }];
-            XLSX.utils.book_append_sheet(wb, ws, 'البيانات المفقودة');
-            XLSX.writeFile(wb, `البيانات_المفقودة_${new Date().toISOString().split('T')[0]}.xlsx`);
+            ws['!cols'] = [{ wch: 12 }, { wch: 15 }, { wch: 15 }, { wch: 25 }, { wch: 25 }, { wch: 25 }, { wch: 25 }, { wch: 15 }];
+            XLSX.utils.book_append_sheet(wb, ws, 'النتائج');
 
-            showNotification('تم تصدير البيانات بنجاح! ✅');
+            // Also create summary sheet
+            const summaryData = [
+                { 'البيان': 'إجمالي السجلات', 'القيمة': allData.length },
+                { 'البيان': 'تم الاستخراج', 'القيمة': allData.filter(r => r.status === 'completed').length },
+                { 'البيان': 'فشل الاستخراج', 'القيمة': allData.filter(r => r.status === 'error').length },
+                { 'البيان': 'في الانتظار', 'القيمة': allData.filter(r => r.status === 'pending').length }
+            ];
+            const wsSummary = XLSX.utils.json_to_sheet(summaryData);
+            XLSX.utils.book_append_sheet(wb, wsSummary, 'ملخص');
+
+            XLSX.writeFile(wb, `استخراج_الأسماء_${new Date().toISOString().split('T')[0]}.xlsx`);
+            showNotification('✅ تم تصدير النتائج بنجاح!');
         }
 
         function showNotification(message) {
@@ -456,13 +616,19 @@
         }
 
         function resetData() {
-            allData = []; 
-            missingData = [];
+            allData = [];
+            processedData = [];
+            isProcessing = false;
+
             document.getElementById('fileInput').value = '';
             document.getElementById('fileInfo').classList.add('hidden');
             document.getElementById('statsSection').classList.add('hidden');
+            document.getElementById('actionSection').classList.add('hidden');
             document.getElementById('mapSection').classList.add('hidden');
-            document.getElementById('dataSection').classList.add('hidden');
+            document.getElementById('resultsSection').classList.add('hidden');
+            document.getElementById('progressContainer').classList.remove('show');
+            document.getElementById('extractBtn').disabled = false;
+            document.getElementById('exportBtn').disabled = true;
 
             if (map) {
                 markers.forEach(m => map.removeLayer(m));
@@ -470,10 +636,19 @@
             }
         }
 
+        function resetAll() {
+            resetData();
+            document.getElementById('totalRecords').textContent = '0';
+            document.getElementById('processedRecords').textContent = '0';
+        }
+
+        function toggleSettings() { 
+            document.getElementById('usageSettings').classList.toggle('show'); 
+        }
+
         // Initialize
         document.addEventListener('DOMContentLoaded', () => { 
             setupEventListeners(); 
-            updateUsageStats();
         });
     </script>
 
