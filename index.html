@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>استخراج جماعي احترافي</title>
+<title>استخراج ذكي بدون تكرار</title>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
@@ -42,12 +42,46 @@ let map;
 let markers=[];
 let resultData=[];
 
+// كاش دائم
+let cache = JSON.parse(localStorage.getItem("geoCache") || "{}");
+
 function initMap(){
     map=new google.maps.Map(document.getElementById("map"),{
         center:{lat:21.4,lng:40.4},
         zoom:10,
         mapTypeId:"hybrid"
     });
+}
+
+// حساب المسافة
+function getDistance(lat1, lon1, lat2, lon2){
+    const R = 6371;
+    const dLat = (lat2-lat1) * Math.PI/180;
+    const dLon = (lon2-lon1) * Math.PI/180;
+
+    const a =
+        Math.sin(dLat/2)**2 +
+        Math.cos(lat1*Math.PI/180) *
+        Math.cos(lat2*Math.PI/180) *
+        Math.sin(dLon/2)**2;
+
+    return (R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a))) * 1000;
+}
+
+// البحث عن نقطة قريبة
+function findNearby(lat, lng){
+    for(let key in cache){
+        const [clat, clng] = key.split(",").map(Number);
+        const dist = getDistance(lat, lng, clat, clng);
+
+        if(dist <= 60){
+            return {
+                ...cache[key],
+                note:"📍 نقطة قريبة ≤60م"
+            };
+        }
+    }
+    return null;
 }
 
 function loadExcel(){
@@ -68,45 +102,34 @@ function loadExcel(){
 
 async function process(rows){
     clearMap();
-    resultData=[["x","y","الحي","الشارع"]];
 
-    let batchSize = 10;
+    resultData=[["X","Y","الحي","الشارع","ملاحظة"]];
 
-    for(let i=1;i<rows.length;i+=batchSize){
+    for(let i=1;i<rows.length;i++){
 
-        let promises = [];
+        const row=rows[i];
+        if(!row) continue;
 
-        for(let j=i;j<i+batchSize && j<rows.length;j++){
+        const lng=parseFloat(row[0]);
+        const lat=parseFloat(row[1]);
+        const district=row[2] || "";
 
-            const row=rows[j];
-            if(!row) continue;
+        if(isNaN(lat) || isNaN(lng)) continue;
 
-            const lng=parseFloat(row[0]);
-            const lat=parseFloat(row[1]);
-            const district=row[2] || "";
+        addMarker(lat,lng,district);
 
-            if(isNaN(lat) || isNaN(lng)) continue;
+        const info = await getAddress(lat,lng);
 
-            addMarker(lat,lng,district);
-
-            promises.push(
-                getAddress(lat,lng).then(info=>{
-                    resultData.push([
-                        lng,
-                        lat,
-                        info.district || district,
-                        info.street || ""
-                    ]);
-                })
-            );
-        }
-
-        await Promise.all(promises);
-
-        console.log("تمت دفعة:", i);
+        resultData.push([
+            lng,
+            lat,
+            info.district || district,
+            info.street || "",
+            info.note || ""
+        ]);
     }
 
-    alert("تم الاستخراج الجماعي ✅🔥");
+    alert("تم الاستخراج الذكي ✅🔥");
 }
 
 function addMarker(lat,lng,name){
@@ -122,73 +145,49 @@ function clearMap(){
     markers=[];
 }
 
-// ✅ دالة محسّنة لاستخراج اسم الحي بدقة
+// الدالة الذكية
 function getAddress(lat,lng){
     return new Promise(resolve=>{
-        const url=`https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=AIzaSyBXJ_hCbWG7doWTL1bU_UgRAb4OSnMI5U0&language=ar`;
+
+        const key = lat.toFixed(6)+","+lng.toFixed(6);
+
+        if(cache[key]){
+            resolve({...cache[key],note:"✅ من الكاش"});
+            return;
+        }
+
+        const nearby = findNearby(lat,lng);
+        if(nearby){
+            resolve(nearby);
+            return;
+        }
+
+        const url = `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=AIzaSyBXJ_hCbWG7doWTL1bU_UgRAb4OSnMI5U0&language=ar`;
 
         fetch(url)
         .then(res=>res.json())
         .then(data=>{
-            if(data.results.length>0){
+            let street="", district="";
+
+            if(data.results && data.results.length>0){
                 const comp=data.results[0].address_components;
-                const formattedAddress = data.results[0].formatted_address || "";
 
-                let street="";
-                let district="";
-
-                // 🔍 البحث عن الشارع (route)
                 comp.forEach(c=>{
                     if(c.types.includes("route")) street=c.long_name;
+                    if(c.types.includes("neighborhood") || c.types.includes("sublocality")){
+                        district=c.long_name;
+                    }
                 });
-
-                // 🔍 البحث عن الحي بترتيب الأولوية (من الأدق إلى الأعم)
-                // neighborhood = الحي المباشر
-                // sublocality_level_1 = الحي/المنطقة الفرعية
-                // sublocality = المنطقة المحلية
-                // locality = المدينة (مثل الطائف)
-                
-                const districtTypes = [
-                    "neighborhood",           // الحي المباشر
-                    "sublocality_level_1",    // الحي/الحي الفرعي
-                    "sublocality",            // المنطقة المحلية
-                    "administrative_area_level_3", // المستوى الإداري 3
-                    "administrative_area_level_2"  // المستوى الإداري 2
-                ];
-
-                for(let type of districtTypes){
-                    const found = comp.find(c => c.types.includes(type));
-                    if(found){
-                        district = found.long_name;
-                        // تجنب أسماء المدن الكبيرة إذا وجدنا حي أصغر
-                        if(type !== "locality" && type !== "administrative_area_level_2"){
-                            break;
-                        }
-                    }
-                }
-
-                // 🚫 إذا كان الناتج اسم مدينة كبيرة (مثل الطائف)، نحاول استخراج من العنوان المنسق
-                if(!district || district === "الطائف" || district === "Taif" || district === "مكة" || district === "Mecca"){
-                    // محاولة استخراج من formatted_address
-                    // العنوان المنسق يكون مثل: "123 شارع..., حي..., الطائف..."
-                    const parts = formattedAddress.split(',').map(p => p.trim());
-                    if(parts.length >= 2){
-                        // نأخذ الجزء قبل المدينة مباشرة
-                        const possibleDistrict = parts[parts.length - 2]; // العنصر قبل الأخير (المدينة)
-                        if(possibleDistrict && possibleDistrict !== district && 
-                           !possibleDistrict.includes("السعودية") && 
-                           !possibleDistrict.includes("Saudi Arabia")){
-                            district = possibleDistrict;
-                        }
-                    }
-                }
-
-                resolve({street,district});
-            }else{
-                resolve({street:"",district:""});
             }
+
+            const result={street,district,note:"🌐 API"};
+
+            cache[key]=result;
+            localStorage.setItem("geoCache",JSON.stringify(cache));
+
+            resolve(result);
         })
-        .catch(()=>resolve({street:"",district:""}));
+        .catch(()=>resolve({street:"",district:"",note:"❌ خطأ"}));
     });
 }
 
@@ -196,7 +195,7 @@ function exportExcel(){
     const ws=XLSX.utils.aoa_to_sheet(resultData);
     const wb=XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb,ws,"نتائج");
-    XLSX.writeFile(wb,"نتائج_جماعية.xlsx");
+    XLSX.writeFile(wb,"نتائج_ذكية.xlsx");
 }
 </script>
 
