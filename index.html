@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 
-<title>تحليل الأحياء - النسخة الخارقة</title>
+<title>تحليل الأحياء - النسخة الاحترافية</title>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
@@ -13,48 +13,27 @@
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
 <style>
-*{box-sizing:border-box}
 body{margin:0;font-family:tahoma;background:#f5f7fb}
-
 .top{
 position:absolute;top:10px;left:50%;transform:translateX(-50%);
 background:#fff;padding:10px;border-radius:12px;
 box-shadow:0 4px 14px rgba(0,0,0,.18);z-index:1000;
 display:flex;gap:6px;flex-wrap:wrap
 }
+.top input,.top select,.top button{padding:6px;border-radius:8px;border:1px solid #ddd}
+.top button{background:#0ea5e9;color:#fff;border:none}
 
-.top input,.top select,.top button{
-padding:6px;border-radius:8px;border:1px solid #ddd
-}
-
-.top button{
-background:#0ea5e9;color:#fff;border:none;cursor:pointer
-}
-
-#map{height:65vh}
+#map{height:60vh}
 
 .bottomWrap{
 display:grid;
-grid-template-columns:300px 1fr;
+grid-template-columns:300px 1fr 1fr;
 gap:10px;
 padding:10px
 }
 
-.card{
-background:#fff;
-padding:10px;
-border-radius:12px
-}
-
-.mapLabel{
-background:#fff;
-padding:4px 6px;
-border-radius:6px;
-font-size:12px;
-font-weight:bold;
-white-space:nowrap;
-box-shadow:0 2px 6px rgba(0,0,0,.2)
-}
+.card{background:#fff;padding:10px;border-radius:12px}
+.mapLabel{background:#fff;padding:4px 6px;border-radius:6px;font-size:12px}
 </style>
 </head>
 
@@ -63,6 +42,14 @@ box-shadow:0 2px 6px rgba(0,0,0,.2)
 <div class="top">
 <input type="file" id="file">
 <button onclick="loadExcel()">رفع</button>
+
+<select id="municipalityFilter" onchange="applyCurrentFilter()">
+<option value="all">كل البلديات</option>
+</select>
+
+<select id="dateFilter" onchange="applyCurrentFilter()">
+<option value="all">كل الأشهر</option>
+</select>
 
 <select id="filterSelect" onchange="applyCurrentFilter()">
 <option value="all">الكل</option>
@@ -73,8 +60,6 @@ box-shadow:0 2px 6px rgba(0,0,0,.2)
 <input id="searchBox" placeholder="بحث..." oninput="applyCurrentFilter()">
 
 <button onclick="fitAll()">إظهار الكل</button>
-<button onclick="exportExcel()">تصدير</button>
-<button onclick="clearAllData()">مسح</button>
 </div>
 
 <div id="map"></div>
@@ -85,37 +70,26 @@ box-shadow:0 2px 6px rgba(0,0,0,.2)
 <div>إجمالي: <span id="totalReports">0</span></div>
 <div>أحياء: <span id="totalDistricts">0</span></div>
 <div>الأعلى: <span id="topDistrict">-</span></div>
-<div id="legendBox"></div>
 </div>
 
 <div class="card">
-<canvas id="chart"></canvas>
+<canvas id="chartDistrict"></canvas>
+</div>
+
+<div class="card">
+<canvas id="chartCategory"></canvas>
 </div>
 
 </div>
 
 <script>
-
-let map;
-let polygons=[],labels=[];
-let rawDistricts=[],visibleDistricts=[];
-let chart=null;
-let exportRows=[];
-
-const colors=[
-"#dc2626","#ea580c","#ca8a04","#16a34a","#0891b2",
-"#2563eb","#7c3aed","#db2777","#0f766e","#65a30d"
-];
+let map,polygons=[],labels=[];
+let rawData=[],filteredData=[];
+let chart1,chart2;
 
 function initMap(){
-map=L.map('map',{zoomControl:true}).setView([21.4,40.4],10);
-
+map=L.map('map').setView([21.4,40.4],10);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-
-// 🔥 إعادة الرسم عند الزوم
-map.on('zoomend', ()=>{
-draw();
-});
 }
 
 function loadExcel(){
@@ -125,207 +99,126 @@ const reader=new FileReader();
 reader.onload=e=>{
 const wb=XLSX.read(new Uint8Array(e.target.result),{type:'array'});
 const rows=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1});
-processRows(rows);
+
+rawData=[];
+let muniSet=new Set(),dateSet=new Set();
+
+for(let i=1;i<rows.length;i++){
+let r=rows[i];
+let item={
+lng:+r[0],
+lat:+r[1],
+district:r[2],
+municipality:r[3],
+date:r[4],
+category:r[5]
+};
+if(isNaN(item.lat)||isNaN(item.lng))continue;
+
+rawData.push(item);
+muniSet.add(item.municipality);
+dateSet.add(item.date);
+}
+
+fillSelect("municipalityFilter",muniSet);
+fillSelect("dateFilter",dateSet);
+
+applyCurrentFilter();
 };
 
 reader.readAsArrayBuffer(file);
 }
 
-function processRows(rows){
-let mapData={},total=0;
-
-for(let i=1;i<rows.length;i++){
-let r=rows[i];
-
-let lng=parseFloat(r[0]);
-let lat=parseFloat(r[1]);
-let name=r[2]||"غير معروف";
-
-if(isNaN(lat)||isNaN(lng))continue;
-
-total++;
-
-if(!mapData[name]){
-mapData[name]={name,points:[]};
-}
-
-mapData[name].points.push({lat,lng});
-}
-
-rawDistricts=Object.values(mapData)
-.map((d,i)=>{
-
-let cLat=d.points.reduce((s,p)=>s+p.lat,0)/d.points.length;
-let cLng=d.points.reduce((s,p)=>s+p.lng,0)/d.points.length;
-
-return {
-...d,
-count:d.points.length,
-centerLat:cLat,
-centerLng:cLng,
-color:colors[i%colors.length]
-};
-
-})
-.sort((a,b)=>b.count-a.count);
-
-document.getElementById("totalReports").textContent=total;
-document.getElementById("totalDistricts").textContent=rawDistricts.length;
-document.getElementById("topDistrict").textContent=rawDistricts[0]?.name||"-";
-
-applyCurrentFilter();
+function fillSelect(id,set){
+let el=document.getElementById(id);
+el.innerHTML='<option value="all">الكل</option>';
+[...set].forEach(v=>{
+el.innerHTML+=`<option>${v}</option>`;
+});
 }
 
 function applyCurrentFilter(){
-let top=document.getElementById("filterSelect").value;
+
+let muni=document.getElementById("municipalityFilter").value;
+let date=document.getElementById("dateFilter").value;
 let search=document.getElementById("searchBox").value;
 
-let arr=rawDistricts.filter(d=>d.name.includes(search));
-
-if(top==="5")arr=arr.slice(0,5);
-if(top==="10")arr=arr.slice(0,10);
-
-visibleDistricts=arr;
+filteredData=rawData.filter(d=>{
+return (muni==="all"||d.municipality==muni) &&
+(date==="all"||d.date==date) &&
+d.district.includes(search);
+});
 
 draw();
+drawCharts();
 }
 
 function draw(){
-
-clearMapLayers();
-
-let zoom=map.getZoom();
-
-visibleDistricts.forEach(d=>{
-
-let hull=convexHull(d.points);
-
-// 🔥 تصغير/تكبير حسب الزوم
-let factor = zoom < 10 ? 0.5 : zoom < 13 ? 0.2 : 0.05;
-
-hull = hull.map(p => ({
-lat: d.centerLat + (p.lat - d.centerLat)*(1+factor),
-lng: d.centerLng + (p.lng - d.centerLng)*(1+factor)
-}));
-
-let poly=L.polygon(hull.map(p=>[p.lat,p.lng]),{
-color:d.color,
-fillColor:d.color,
-fillOpacity:0.35
-}).addTo(map);
-
-polygons.push(poly);
-
-// 🔥 الأسماء حسب الزوم
-if(zoom >= 11){
-
-let fontSize = zoom >= 14 ? "14px" : "12px";
-
-let label=L.marker([d.centerLat,d.centerLng],{
-icon:L.divIcon({
-html:`<div class="mapLabel" style="font-size:${fontSize}">${d.name} (${d.count})</div>`
-})
-}).addTo(map);
-
-labels.push(label);
-}
-
-});
-
-drawChart();
-buildLegend();
-buildExport();
-fitAll();
-}
-
-function convexHull(points){
-const pts=points.map(p=>[p.lat,p.lng]);
-
-if(pts.length<=3){
-return pts.map(p=>({lat:p[0],lng:p[1]}));
-}
-
-pts.sort((a,b)=>a[0]===b[0]?a[1]-b[1]:a[0]-b[0]);
-
-const cross=(o,a,b)=>(a[0]-o[0])*(b[1]-o[1])-(a[1]-o[1])*(b[0]-o[0]);
-
-const lower=[];
-for(const p of pts){
-while(lower.length>=2&&cross(lower[lower.length-2],lower[lower.length-1],p)<=0){
-lower.pop();
-}
-lower.push(p);
-}
-
-const upper=[];
-for(let i=pts.length-1;i>=0;i--){
-const p=pts[i];
-while(upper.length>=2&&cross(upper[upper.length-2],upper[upper.length-1],p)<=0){
-upper.pop();
-}
-upper.push(p);
-}
-
-upper.pop();
-lower.pop();
-
-return lower.concat(upper).map(p=>({lat:p[0],lng:p[1]}));
-}
-
-function drawChart(){
-if(chart)chart.destroy();
-
-chart=new Chart(document.getElementById("chart"),{
-type:'bar',
-data:{
-labels:visibleDistricts.map(d=>d.name),
-datasets:[{
-data:visibleDistricts.map(d=>d.count),
-backgroundColor:visibleDistricts.map(d=>d.color)
-}]
-}
-});
-}
-
-function buildLegend(){
-document.getElementById("legendBox").innerHTML=
-visibleDistricts.map(d=>`<div style="color:${d.color}">${d.name} (${d.count})</div>`).join("");
-}
-
-function buildExport(){
-exportRows=[["الحي","عدد"]];
-visibleDistricts.forEach(d=>{
-exportRows.push([d.name,d.count]);
-});
-}
-
-function exportExcel(){
-let ws=XLSX.utils.aoa_to_sheet(exportRows);
-let wb=XLSX.utils.book_new();
-XLSX.utils.book_append_sheet(wb,ws,"data");
-XLSX.writeFile(wb,"result.xlsx");
-}
-
-function clearMapLayers(){
 polygons.forEach(p=>map.removeLayer(p));
 labels.forEach(l=>map.removeLayer(l));
 polygons=[];labels=[];
+
+let groups={};
+
+filteredData.forEach(d=>{
+if(!groups[d.district])groups[d.district]=[];
+groups[d.district].push(d);
+});
+
+Object.keys(groups).forEach(name=>{
+let pts=groups[name].map(p=>[p.lat,p.lng]);
+
+let poly=L.polygon(pts,{color:"#2563eb"}).addTo(map);
+polygons.push(poly);
+
+let center=poly.getBounds().getCenter();
+
+let label=L.marker(center,{
+icon:L.divIcon({html:`<div class="mapLabel">${name}</div>`})
+}).addTo(map);
+
+labels.push(label);
+});
+
 }
 
-function clearAllData(){
-location.reload();
+function drawCharts(){
+
+let districtCount={};
+let catCount={};
+
+filteredData.forEach(d=>{
+districtCount[d.district]=(districtCount[d.district]||0)+1;
+catCount[d.category]=(catCount[d.category]||0)+1;
+});
+
+let dLabels=Object.keys(districtCount);
+let dValues=Object.values(districtCount);
+
+let cLabels=Object.keys(catCount);
+let cValues=Object.values(catCount);
+
+if(chart1)chart1.destroy();
+if(chart2)chart2.destroy();
+
+chart1=new Chart(document.getElementById("chartDistrict"),{
+type:'bar',
+data:{labels:dLabels,datasets:[{data:dValues}]}
+});
+
+chart2=new Chart(document.getElementById("chartCategory"),{
+type:'bar',
+data:{labels:cLabels,datasets:[{data:cValues,backgroundColor:"#16a34a"}]}
+});
 }
 
 function fitAll(){
 let bounds=[];
-visibleDistricts.forEach(d=>{
-d.points.forEach(p=>bounds.push([p.lat,p.lng]));
-});
+filteredData.forEach(p=>bounds.push([p.lat,p.lng]));
 if(bounds.length)map.fitBounds(bounds);
 }
 
 initMap();
-
 </script>
 
 </body>
