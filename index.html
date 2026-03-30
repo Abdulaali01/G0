@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 
-<title>تحليل الأحياء - النسخة الاحترافية</title>
+<title>تحليل الأحياء - النسخة النهائية</title>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
@@ -14,14 +14,22 @@
 
 <style>
 body{margin:0;font-family:tahoma;background:#f5f7fb}
+
 .top{
 position:absolute;top:10px;left:50%;transform:translateX(-50%);
 background:#fff;padding:10px;border-radius:12px;
-box-shadow:0 4px 14px rgba(0,0,0,.18);z-index:1000;
+box-shadow:0 4px 14px rgba(0,0,0,.18);
+z-index:1000;
 display:flex;gap:6px;flex-wrap:wrap
 }
-.top input,.top select,.top button{padding:6px;border-radius:8px;border:1px solid #ddd}
-.top button{background:#0ea5e9;color:#fff;border:none}
+
+.top input,.top select,.top button{
+padding:6px;border-radius:8px;border:1px solid #ddd
+}
+
+.top button{
+background:#0ea5e9;color:#fff;border:none
+}
 
 #map{height:60vh}
 
@@ -32,14 +40,28 @@ gap:10px;
 padding:10px
 }
 
-.card{background:#fff;padding:10px;border-radius:12px}
-.mapLabel{background:#fff;padding:4px 6px;border-radius:6px;font-size:12px}
+.card{
+background:#fff;
+padding:10px;
+border-radius:12px
+}
+
+.mapLabel{
+background:#fff;
+padding:4px 6px;
+border-radius:6px;
+font-size:12px;
+font-weight:bold;
+white-space:nowrap;
+box-shadow:0 2px 6px rgba(0,0,0,.2)
+}
 </style>
 </head>
 
 <body>
 
 <div class="top">
+
 <input type="file" id="file">
 <button onclick="loadExcel()">رفع</button>
 
@@ -59,18 +81,11 @@ padding:10px
 
 <input id="searchBox" placeholder="بحث..." oninput="applyCurrentFilter()">
 
-<button onclick="fitAll()">إظهار الكل</button>
 </div>
 
 <div id="map"></div>
 
 <div class="bottomWrap">
-
-<div class="card">
-<div>إجمالي: <span id="totalReports">0</span></div>
-<div>أحياء: <span id="totalDistricts">0</span></div>
-<div>الأعلى: <span id="topDistrict">-</span></div>
-</div>
 
 <div class="card">
 <canvas id="chartDistrict"></canvas>
@@ -83,13 +98,26 @@ padding:10px
 </div>
 
 <script>
-let map,polygons=[],labels=[];
+
+let map;
 let rawData=[],filteredData=[];
+let polygons=[],labels=[];
 let chart1,chart2;
+
+function normalize(t){
+return String(t||"")
+.trim()
+.replace(/\s+/g," ")
+.replace(/[أإآ]/g,"ا")
+.replace(/ة/g,"ه");
+}
 
 function initMap(){
 map=L.map('map').setView([21.4,40.4],10);
+
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+
+map.on('zoomend',()=>drawMap(currentDistricts));
 }
 
 function loadExcel(){
@@ -100,22 +128,25 @@ reader.onload=e=>{
 const wb=XLSX.read(new Uint8Array(e.target.result),{type:'array'});
 const rows=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1});
 
-rawData=[];
 let muniSet=new Set(),dateSet=new Set();
+rawData=[];
 
 for(let i=1;i<rows.length;i++){
 let r=rows[i];
+
 let item={
 lng:+r[0],
 lat:+r[1],
-district:r[2],
-municipality:r[3],
-date:r[4],
-category:r[5]
+district:normalize(r[2]),
+municipality:normalize(r[3]),
+date:normalize(r[4]),
+category:normalize(r[5])
 };
+
 if(isNaN(item.lat)||isNaN(item.lng))continue;
 
 rawData.push(item);
+
 muniSet.add(item.municipality);
 dateSet.add(item.date);
 }
@@ -133,92 +164,152 @@ function fillSelect(id,set){
 let el=document.getElementById(id);
 el.innerHTML='<option value="all">الكل</option>';
 [...set].forEach(v=>{
-el.innerHTML+=`<option>${v}</option>`;
+el.innerHTML+=`<option value="${v}">${v}</option>`;
 });
 }
+
+let currentDistricts=[];
 
 function applyCurrentFilter(){
 
 let muni=document.getElementById("municipalityFilter").value;
 let date=document.getElementById("dateFilter").value;
-let search=document.getElementById("searchBox").value;
+let search=normalize(document.getElementById("searchBox").value);
+let top=document.getElementById("filterSelect").value;
 
 filteredData=rawData.filter(d=>{
-return (muni==="all"||d.municipality==muni) &&
-(date==="all"||d.date==date) &&
+return (muni==="all"||d.municipality===muni) &&
+(date==="all"||d.date===date) &&
 d.district.includes(search);
 });
 
-draw();
-drawCharts();
+let grouped={};
+
+filteredData.forEach(d=>{
+if(!grouped[d.district])grouped[d.district]=[];
+grouped[d.district].push(d);
+});
+
+let districts=Object.keys(grouped).map(name=>{
+let pts=grouped[name];
+return {
+name,
+points:pts,
+count:pts.length,
+centerLat:pts.reduce((s,p)=>s+p.lat,0)/pts.length,
+centerLng:pts.reduce((s,p)=>s+p.lng,0)/pts.length
+};
+}).sort((a,b)=>b.count-a.count);
+
+if(top==="5")districts=districts.slice(0,5);
+if(top==="10")districts=districts.slice(0,10);
+
+currentDistricts=districts;
+
+drawMap(districts);
+drawCharts(districts);
 }
 
-function draw(){
+function convexHull(points){
+const pts=points.map(p=>[p.lat,p.lng]);
+
+if(pts.length<=3)return pts.map(p=>({lat:p[0],lng:p[1]}));
+
+pts.sort((a,b)=>a[0]===b[0]?a[1]-b[1]:a[0]-b[0]);
+
+const cross=(o,a,b)=>(a[0]-o[0])*(b[1]-o[1])-(a[1]-o[1])*(b[0]-o[0]);
+
+const lower=[],upper=[];
+
+for(const p of pts){
+while(lower.length>=2&&cross(lower[lower.length-2],lower[lower.length-1],p)<=0){
+lower.pop();
+}
+lower.push(p);
+}
+
+for(let i=pts.length-1;i>=0;i--){
+const p=pts[i];
+while(upper.length>=2&&cross(upper[upper.length-2],upper[upper.length-1],p)<=0){
+upper.pop();
+}
+upper.push(p);
+}
+
+upper.pop(); lower.pop();
+
+return lower.concat(upper).map(p=>({lat:p[0],lng:p[1]}));
+}
+
+function drawMap(districts){
+
 polygons.forEach(p=>map.removeLayer(p));
 labels.forEach(l=>map.removeLayer(l));
 polygons=[];labels=[];
 
-let groups={};
+let zoom=map.getZoom();
 
-filteredData.forEach(d=>{
-if(!groups[d.district])groups[d.district]=[];
-groups[d.district].push(d);
-});
+districts.forEach(d=>{
 
-Object.keys(groups).forEach(name=>{
-let pts=groups[name].map(p=>[p.lat,p.lng]);
+let hull=convexHull(d.points);
 
-let poly=L.polygon(pts,{color:"#2563eb"}).addTo(map);
+let factor=zoom<10?0.5:zoom<13?0.2:0.05;
+
+hull=hull.map(p=>({
+lat:d.centerLat+(p.lat-d.centerLat)*(1+factor),
+lng:d.centerLng+(p.lng-d.centerLng)*(1+factor)
+}));
+
+let poly=L.polygon(hull.map(p=>[p.lat,p.lng]),{
+color:"#2563eb",
+fillOpacity:0.3
+}).addTo(map);
+
 polygons.push(poly);
 
-let center=poly.getBounds().getCenter();
-
-let label=L.marker(center,{
-icon:L.divIcon({html:`<div class="mapLabel">${name}</div>`})
+if(zoom>=11){
+let label=L.marker([d.centerLat,d.centerLng],{
+icon:L.divIcon({
+html:`<div class="mapLabel">${d.name} (${d.count})</div>`
+})
 }).addTo(map);
 
 labels.push(label);
-});
-
 }
 
-function drawCharts(){
+});
+}
 
-let districtCount={};
-let catCount={};
+function drawCharts(districts){
+
+let districtNames=districts.map(d=>d.name);
+let districtCounts=districts.map(d=>d.count);
+
+let categoryCount={};
 
 filteredData.forEach(d=>{
-districtCount[d.district]=(districtCount[d.district]||0)+1;
-catCount[d.category]=(catCount[d.category]||0)+1;
+categoryCount[d.category]=(categoryCount[d.category]||0)+1;
 });
-
-let dLabels=Object.keys(districtCount);
-let dValues=Object.values(districtCount);
-
-let cLabels=Object.keys(catCount);
-let cValues=Object.values(catCount);
 
 if(chart1)chart1.destroy();
 if(chart2)chart2.destroy();
 
 chart1=new Chart(document.getElementById("chartDistrict"),{
 type:'bar',
-data:{labels:dLabels,datasets:[{data:dValues}]}
+data:{labels:districtNames,datasets:[{data:districtCounts}]}
 });
 
 chart2=new Chart(document.getElementById("chartCategory"),{
 type:'bar',
-data:{labels:cLabels,datasets:[{data:cValues,backgroundColor:"#16a34a"}]}
+data:{
+labels:Object.keys(categoryCount),
+datasets:[{data:Object.values(categoryCount),backgroundColor:"#16a34a"}]
+}
 });
 }
 
-function fitAll(){
-let bounds=[];
-filteredData.forEach(p=>bounds.push([p.lat,p.lng]));
-if(bounds.length)map.fitBounds(bounds);
-}
-
 initMap();
+
 </script>
 
 </body>
