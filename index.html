@@ -3,365 +3,911 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<title>تحليل الأحياء - النسخة الاحترافية</title>
 
-<title>تحليل الأحياء - النسخة الخارقة</title>
-
+<!-- Chart.js -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<!-- Chart.js DataLabels Plugin -->
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
+<!-- SheetJS -->
 <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
-
+<!-- Leaflet -->
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<!-- html2canvas for export -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 
 <style>
-*{box-sizing:border-box}
-body{margin:0;font-family:tahoma;background:#f5f7fb}
-
-.top{
-position:absolute;top:10px;left:50%;transform:translateX(-50%);
-background:#fff;padding:10px;border-radius:12px;
-box-shadow:0 4px 14px rgba(0,0,0,.18);z-index:1000;
-display:flex;gap:6px;flex-wrap:wrap
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
 }
 
-.top input,.top select,.top button{
-padding:6px;border-radius:8px;border:1px solid #ddd
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    min-height: 100vh;
 }
 
-.top button{
-background:#0ea5e9;color:#fff;border:none;cursor:pointer
+/* شريط التحكم العلوي */
+.top-bar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(10px);
+    padding: 12px 20px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+    z-index: 10000;
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    align-items: center;
+    border-bottom: 3px solid #667eea;
 }
 
-#map{height:65vh}
-
-.bottomWrap{
-display:grid;
-grid-template-columns:300px 1fr 1fr;
-gap:10px;
-padding:10px
+.top-bar input,
+.top-bar select,
+.top-bar button {
+    padding: 8px 14px;
+    border-radius: 10px;
+    border: 2px solid #e0e0e0;
+    font-size: 14px;
+    transition: all 0.3s ease;
 }
 
-.card{
-background:#fff;
-padding:10px;
-border-radius:12px
+.top-bar input:focus,
+.top-bar select:focus {
+    outline: none;
+    border-color: #667eea;
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
 }
 
-.mapLabel{
-background:#fff;
-padding:4px 6px;
-border-radius:6px;
-font-size:12px;
-font-weight:bold;
-white-space:nowrap;
-box-shadow:0 2px 6px rgba(0,0,0,.2)
+.top-bar button {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+    cursor: pointer;
+    font-weight: 600;
+    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+}
+
+.top-bar button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
+}
+
+/* زر التصدير الخاص */
+.btn-export {
+    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%) !important;
+    box-shadow: 0 4px 15px rgba(245, 87, 108, 0.4) !important;
+}
+
+.btn-export:hover {
+    box-shadow: 0 6px 20px rgba(245, 87, 108, 0.6) !important;
+}
+
+/* زر الزوم */
+.btn-zoom {
+    background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%) !important;
+    box-shadow: 0 4px 15px rgba(79, 172, 254, 0.4) !important;
+}
+
+/* الحاوية الرئيسية */
+.main-container {
+    margin-top: 70px;
+    padding: 20px;
+    display: grid;
+    grid-template-rows: 60vh auto;
+    gap: 20px;
+    max-width: 100%;
+}
+
+/* الخريطة */
+.map-section {
+    background: white;
+    border-radius: 20px;
+    overflow: hidden;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+    position: relative;
+}
+
+#map {
+    height: 100%;
+    width: 100%;
+}
+
+/* شريط الزوم المخصص */
+.custom-zoom {
+    position: absolute;
+    bottom: 20px;
+    right: 20px;
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    z-index: 1000;
+}
+
+.zoom-btn {
+    width: 44px;
+    height: 44px;
+    border: none;
+    background: white;
+    font-size: 24px;
+    cursor: pointer;
+    transition: all 0.3s;
+    color: #667eea;
+}
+
+.zoom-btn:hover {
+    background: #f0f0f0;
+}
+
+.zoom-btn:first-child {
+    border-bottom: 1px solid #e0e0e0;
+}
+
+/* قسم الإحصائيات والرسوم */
+.stats-section {
+    display: grid;
+    grid-template-columns: 280px 1fr 1fr;
+    gap: 20px;
+}
+
+.card {
+    background: white;
+    border-radius: 20px;
+    padding: 20px;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.15);
+    transition: transform 0.3s ease;
+}
+
+.card:hover {
+    transform: translateY(-5px);
+}
+
+.card-title {
+    font-size: 18px;
+    font-weight: 700;
+    color: #333;
+    margin-bottom: 15px;
+    padding-bottom: 10px;
+    border-bottom: 2px solid #667eea;
+}
+
+.stat-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px;
+    margin-bottom: 8px;
+    background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+    border-radius: 10px;
+    font-size: 14px;
+}
+
+.stat-value {
+    font-weight: 700;
+    color: #667eea;
+    font-size: 18px;
+}
+
+.legend-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px;
+    margin-bottom: 5px;
+    border-radius: 8px;
+    transition: background 0.3s;
+    cursor: pointer;
+}
+
+.legend-item:hover {
+    background: #f0f0f0;
+}
+
+.legend-color {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+}
+
+/* حاوية الرسم البياني */
+.chart-container {
+    position: relative;
+    height: 300px;
+    width: 100%;
+}
+
+/* ملصقات الخريطة المحسنة */
+.map-label {
+    background: rgba(255, 255, 255, 0.95);
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 13px;
+    font-weight: 700;
+    white-space: nowrap;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+    border: 2px solid;
+    transition: all 0.3s ease;
+}
+
+/* تأثيرات للمضلعات */
+.polygon-hover {
+    filter: brightness(1.1);
+    transform: scale(1.02);
+}
+
+/* للطباعة والتصدير */
+.export-container {
+    background: white;
+    padding: 30px;
+    border-radius: 20px;
+}
+
+@media print {
+    .top-bar {
+        display: none;
+    }
+    .main-container {
+        margin-top: 0;
+    }
+}
+
+/* تأثيرات حركية */
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.card {
+    animation: slideIn 0.5s ease forwards;
+}
+
+.card:nth-child(2) {
+    animation-delay: 0.1s;
+}
+
+.card:nth-child(3) {
+    animation-delay: 0.2s;
 }
 </style>
 </head>
 
 <body>
 
-<div class="top">
-<input type="file" id="file">
-<button onclick="loadExcel()">رفع</button>
-
-<!-- 🔥 فلتر البلدية -->
-<select id="municipalityFilter" onchange="applyCurrentFilter()">
-<option value="all">كل البلديات</option>
-</select>
-
-<!-- 🔥 فلتر التاريخ -->
-<select id="dateFilter" onchange="applyCurrentFilter()">
-<option value="all">كل الأشهر</option>
-</select>
-
-<select id="filterSelect" onchange="applyCurrentFilter()">
-<option value="all">الكل</option>
-<option value="5">أعلى 5</option>
-<option value="10">أعلى 10</option>
-</select>
-
-<input id="searchBox" placeholder="بحث..." oninput="applyCurrentFilter()">
-
-<button onclick="fitAll()">إظهار الكل</button>
-<button onclick="exportExcel()">تصدير</button>
-<button onclick="clearAllData()">مسح</button>
+<!-- شريط التحكم -->
+<div class="top-bar">
+    <input type="file" id="file" accept=".xlsx,.xls">
+    <button onclick="loadExcel()">📁 رفع ملف Excel</button>
+    
+    <select id="municipalityFilter" onchange="applyCurrentFilter()">
+        <option value="all">🏛️ كل البلديات</option>
+    </select>
+    
+    <select id="dateFilter" onchange="applyCurrentFilter()">
+        <option value="all">📅 كل الأشهر</option>
+    </select>
+    
+    <select id="filterSelect" onchange="applyCurrentFilter()">
+        <option value="all">📊 الكل</option>
+        <option value="5">⭐ أعلى 5</option>
+        <option value="10">⭐ أعلى 10</option>
+    </select>
+    
+    <input id="searchBox" placeholder="🔍 بحث عن حي..." oninput="applyCurrentFilter()">
+    
+    <button class="btn-zoom" onclick="zoomToFiltered()">🔍 قرّب على المفلتر</button>
+    <button onclick="fitAll()">🌍 إظهار الكل</button>
+    <button class="btn-export" onclick="exportHighResImage()">📸 تصدير صورة عالية الدقة</button>
+    <button onclick="exportExcel()">📊 تصدير Excel</button>
+    <button onclick="clearAllData()" style="background: #ff4757 !important;">🗑️ مسح</button>
 </div>
 
-<div id="map"></div>
-
-<div class="bottomWrap">
-
-<div class="card">
-<div>إجمالي: <span id="totalReports">0</span></div>
-<div>أحياء: <span id="totalDistricts">0</span></div>
-<div>الأعلى: <span id="topDistrict">-</span></div>
-<div id="legendBox"></div>
-</div>
-
-<div class="card">
-<canvas id="chart"></canvas>
-</div>
-
-<!-- 🔥 الرسم الثاني -->
-<div class="card">
-<canvas id="chart2"></canvas>
-</div>
-
+<!-- الحاوية الرئيسية -->
+<div class="main-container" id="captureArea">
+    
+    <!-- الخريطة -->
+    <div class="map-section">
+        <div id="map"></div>
+        
+        <!-- شريط الزوم المخصص -->
+        <div class="custom-zoom">
+            <button class="zoom-btn" onclick="map.zoomIn()" title="تكبير">+</button>
+            <button class="zoom-btn" onclick="map.zoomOut()" title="تصغير">−</button>
+        </div>
+    </div>
+    
+    <!-- الإحصائيات والرسوم -->
+    <div class="stats-section">
+        
+        <!-- بطاقة الإحصائيات -->
+        <div class="card">
+            <div class="card-title">📈 إحصائيات عامة</div>
+            
+            <div class="stat-item">
+                <span>إجمالي التقارير</span>
+                <span class="stat-value" id="totalReports">0</span>
+            </div>
+            
+            <div class="stat-item">
+                <span>عدد الأحياء</span>
+                <span class="stat-value" id="totalDistricts">0</span>
+            </div>
+            
+            <div class="stat-item">
+                <span>الأعلى تقارير</span>
+                <span class="stat-value" id="topDistrict">-</span>
+            </div>
+            
+            <div style="margin-top: 20px;">
+                <div class="card-title">🎨 دليل الألوان</div>
+                <div id="legendBox"></div>
+            </div>
+        </div>
+        
+        <!-- الرسم البياني الأول -->
+        <div class="card">
+            <div class="card-title">📊 توزيع التقارير بالأحياء</div>
+            <div class="chart-container">
+                <canvas id="chart"></canvas>
+            </div>
+        </div>
+        
+        <!-- الرسم البياني الثاني -->
+        <div class="card">
+            <div class="card-title">📈 توزيع التصنيفات</div>
+            <div class="chart-container">
+                <canvas id="chart2"></canvas>
+            </div>
+        </div>
+        
+    </div>
 </div>
 
 <script>
 
+// تسجيل plugin datalabels
+Chart.register(ChartDataLabels);
+
 let map;
-let polygons=[],labels=[];
-let rawDistricts=[],visibleDistricts=[];
-let chart=null;
-let chart2=null;
-let exportRows=[];
+let polygons = [], labels = [];
+let rawDistricts = [], visibleDistricts = [];
+let chart = null, chart2 = null;
+let exportRows = [];
+let allMunicipalities = new Set();
+let allDates = new Set();
+let categoryData = {};
 
-let allMunicipalities=new Set();
-let allDates=new Set();
-let categoryData={};
-
-const colors=[
-"#dc2626","#ea580c","#ca8a04","#16a34a","#0891b2",
-"#2563eb","#7c3aed","#db2777","#0f766e","#65a30d"
+const colors = [
+    "#e74c3c", "#e67e22", "#f39c12", "#27ae60", "#16a085",
+    "#2980b9", "#8e44ad", "#c0392b", "#2c3e50", "#7f8c8d",
+    "#1abc9c", "#3498db", "#9b59b6", "#34495e", "#16a085"
 ];
 
-function initMap(){
-map=L.map('map',{zoomControl:true}).setView([21.4,40.4],10);
+// تهيئة الخريطة
+function initMap() {
+    map = L.map('map', {
+        zoomControl: false, // إخفاء زر الزوم الافتراضي
+        attributionControl: false
+    }).setView([21.4, 40.4], 10);
 
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19
+    }).addTo(map);
 
-map.on('zoomend', ()=>{ draw(); });
+    map.on('zoomend', () => {
+        updateLabelsVisibility();
+    });
 }
 
-function loadExcel(){
-const file=document.getElementById("file").files[0];
-const reader=new FileReader();
-
-reader.onload=e=>{
-const wb=XLSX.read(new Uint8Array(e.target.result),{type:'array'});
-const rows=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1});
-processRows(rows);
-};
-
-reader.readAsArrayBuffer(file);
+// تحديث ظهور الملصقات حسب مستوى الزوم
+function updateLabelsVisibility() {
+    const zoom = map.getZoom();
+    
+    labels.forEach(label => {
+        const element = label.getElement();
+        if (element) {
+            if (zoom >= 11) {
+                element.style.opacity = '1';
+                element.style.transform = 'scale(1)';
+            } else {
+                element.style.opacity = '0.7';
+                element.style.transform = 'scale(0.8)';
+            }
+        }
+    });
 }
 
-function processRows(rows){
-
-let mapData={},total=0;
-allMunicipalities.clear();
-allDates.clear();
-categoryData={};
-
-for(let i=1;i<rows.length;i++){
-let r=rows[i];
-
-let lng=parseFloat(r[0]);
-let lat=parseFloat(r[1]);
-let name=String(r[2]||"غير معروف").trim();
-let muni=String(r[3]||"غير محدد").trim();
-let date=String(r[4]||"غير معروف").trim();
-let category=String(r[5]||"غير محدد").trim();
-
-if(isNaN(lat)||isNaN(lng))continue;
-
-total++;
-
-allMunicipalities.add(muni);
-allDates.add(date);
-
-if(!categoryData[category])categoryData[category]=0;
-categoryData[category]++;
-
-let key=name+"||"+muni+"||"+date;
-
-if(!mapData[key]){
-mapData[key]={name,municipality:muni,date,points:[]};
+// تحميل Excel
+function loadExcel() {
+    const file = document.getElementById("file").files[0];
+    if (!file) {
+        alert('الرجاء اختيار ملف أولاً');
+        return;
+    }
+    
+    const reader = new FileReader();
+    reader.onload = e => {
+        const wb = XLSX.read(new Uint8Array(e.target.result), { type: 'array' });
+        const rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1 });
+        processRows(rows);
+    };
+    reader.readAsArrayBuffer(file);
 }
 
-mapData[key].points.push({lat,lng});
+// معالجة البيانات
+function processRows(rows) {
+    let mapData = {}, total = 0;
+    allMunicipalities.clear();
+    allDates.clear();
+    categoryData = {};
+
+    for (let i = 1; i < rows.length; i++) {
+        let r = rows[i];
+        if (!r || r.length < 3) continue;
+
+        let lng = parseFloat(r[0]);
+        let lat = parseFloat(r[1]);
+        let name = String(r[2] || "غير معروف").trim();
+        let muni = String(r[3] || "غير محدد").trim();
+        let date = String(r[4] || "غير معروف").trim();
+        let category = String(r[5] || "غير محدد").trim();
+
+        if (isNaN(lat) || isNaN(lng)) continue;
+
+        total++;
+        allMunicipalities.add(muni);
+        allDates.add(date);
+
+        if (!categoryData[category]) categoryData[category] = 0;
+        categoryData[category]++;
+
+        let key = name + "||" + muni + "||" + date;
+        if (!mapData[key]) {
+            mapData[key] = { name, municipality: muni, date, points: [] };
+        }
+        mapData[key].points.push({ lat, lng });
+    }
+
+    fillSelect("municipalityFilter", allMunicipalities);
+    fillSelect("dateFilter", allDates);
+
+    rawDistricts = Object.values(mapData).map((d, i) => {
+        let cLat = d.points.reduce((s, p) => s + p.lat, 0) / d.points.length;
+        let cLng = d.points.reduce((s, p) => s + p.lng, 0) / d.points.length;
+
+        return {
+            ...d,
+            count: d.points.length,
+            centerLat: cLat,
+            centerLng: cLng,
+            color: colors[i % colors.length]
+        };
+    }).sort((a, b) => b.count - a.count);
+
+    document.getElementById("totalReports").textContent = total;
+    document.getElementById("totalDistricts").textContent = rawDistricts.length;
+    document.getElementById("topDistrict").textContent = rawDistricts[0]?.name || "-";
+
+    applyCurrentFilter();
+    
+    // إظهار رسالة نجاح
+    showNotification(`✅ تم تحميل ${total} تقرير من ${rawDistricts.length} حي`);
 }
 
-fillSelect("municipalityFilter",allMunicipalities);
-fillSelect("dateFilter",allDates);
-
-rawDistricts=Object.values(mapData).map((d,i)=>{
-
-let cLat=d.points.reduce((s,p)=>s+p.lat,0)/d.points.length;
-let cLng=d.points.reduce((s,p)=>s+p.lng,0)/d.points.length;
-
-return {
-...d,
-count:d.points.length,
-centerLat:cLat,
-centerLng:cLng,
-color:colors[i%colors.length]
-};
-
-}).sort((a,b)=>b.count-a.count);
-
-document.getElementById("totalReports").textContent=total;
-document.getElementById("totalDistricts").textContent=rawDistricts.length;
-document.getElementById("topDistrict").textContent=rawDistricts[0]?.name||"-";
-
-applyCurrentFilter();
+// ملء القوائم المنسدلة
+function fillSelect(id, set) {
+    let el = document.getElementById(id);
+    let currentValue = el.value;
+    el.innerHTML = id === 'municipalityFilter' ? '<option value="all">🏛️ كل البلديات</option>' : '<option value="all">📅 كل الأشهر</option>';
+    
+    [...set].sort().forEach(v => {
+        el.innerHTML += `<option value="${v}">${v}</option>`;
+    });
+    
+    if ([...set].includes(currentValue)) {
+        el.value = currentValue;
+    }
 }
 
-function fillSelect(id,set){
-let el=document.getElementById(id);
-el.innerHTML='<option value="all">الكل</option>';
-[...set].forEach(v=>{
-el.innerHTML+=`<option value="${v}">${v}</option>`;
-});
+// تطبيق الفلاتر
+function applyCurrentFilter() {
+    let muni = document.getElementById("municipalityFilter").value;
+    let date = document.getElementById("dateFilter").value;
+    let top = document.getElementById("filterSelect").value;
+    let search = document.getElementById("searchBox").value.toLowerCase();
+
+    let arr = rawDistricts.filter(d =>
+        (muni === "all" || d.municipality === muni) &&
+        (date === "all" || d.date === date) &&
+        d.name.toLowerCase().includes(search)
+    );
+
+    if (top === "5") arr = arr.slice(0, 5);
+    if (top === "10") arr = arr.slice(0, 10);
+
+    visibleDistricts = arr;
+    draw();
+    drawCategoryChart();
 }
 
-function applyCurrentFilter(){
+// رسم الخريطة
+function draw() {
+    clearMapLayers();
 
-let muni=document.getElementById("municipalityFilter").value;
-let date=document.getElementById("dateFilter").value;
-let top=document.getElementById("filterSelect").value;
-let search=document.getElementById("searchBox").value;
+    let zoom = map.getZoom();
 
-let arr=rawDistricts.filter(d=>
-(muni==="all"||d.municipality===muni) &&
-(date==="all"||d.date===date) &&
-d.name.includes(search)
-);
+    visibleDistricts.forEach((d, index) => {
+        let hull = convexHull(d.points);
+        
+        // حساب عامل التكبير حسب مستوى الزوم
+        let factor = zoom < 10 ? 0.5 : zoom < 13 ? 0.2 : 0.05;
+        
+        hull = hull.map(p => ({
+            lat: d.centerLat + (p.lat - d.centerLat) * (1 + factor),
+            lng: d.centerLng + (p.lng - d.centerLng) * (1 + factor)
+        }));
 
-if(top==="5")arr=arr.slice(0,5);
-if(top==="10")arr=arr.slice(0,10);
+        // إنشاء المضلع
+        let poly = L.polygon(hull.map(p => [p.lat, p.lng]), {
+            color: d.color,
+            fillColor: d.color,
+            fillOpacity: 0.4,
+            weight: 3,
+            dashArray: zoom > 12 ? null : '5, 5'
+        }).addTo(map);
 
-visibleDistricts=arr;
+        // تأثير hover
+        poly.on('mouseover', function() {
+            this.setStyle({ fillOpacity: 0.6, weight: 5 });
+        });
+        poly.on('mouseout', function() {
+            this.setStyle({ fillOpacity: 0.4, weight: 3 });
+        });
 
-draw();
-drawCategoryChart();
+        polygons.push(poly);
+
+        // إضافة ملصق دائماً لكن بحجم متغير
+        let labelSize = zoom >= 14 ? '14px' : zoom >= 11 ? '12px' : '10px';
+        let labelPadding = zoom >= 14 ? '8px 16px' : '6px 12px';
+        
+        let label = L.marker([d.centerLat, d.centerLng], {
+            icon: L.divIcon({
+                className: 'custom-label',
+                html: `<div class="map-label" style="
+                    background: rgba(255,255,255,0.95);
+                    color: ${d.color};
+                    border-color: ${d.color};
+                    font-size: ${labelSize};
+                    padding: ${labelPadding};
+                    border-radius: 20px;
+                    font-weight: 700;
+                    box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+                    white-space: nowrap;
+                    transition: all 0.3s;
+                ">${d.name} <span style="background:${d.color};color:white;padding:2px 8px;border-radius:10px;margin-right:5px;">${d.count}</span></div>`,
+                iconSize: null
+            })
+        }).addTo(map);
+
+        labels.push(label);
+    });
+
+    drawChart();
+    buildLegend();
+    buildExport();
 }
 
-function draw(){
-
-clearMapLayers();
-
-let zoom=map.getZoom();
-
-visibleDistricts.forEach(d=>{
-
-let hull=convexHull(d.points);
-
-let factor=zoom<10?0.5:zoom<13?0.2:0.05;
-
-hull=hull.map(p=>({
-lat:d.centerLat+(p.lat-d.centerLat)*(1+factor),
-lng:d.centerLng+(p.lng-d.centerLng)*(1+factor)
-}));
-
-let poly=L.polygon(hull.map(p=>[p.lat,p.lng]),{
-color:d.color,
-fillColor:d.color,
-fillOpacity:0.35
-}).addTo(map);
-
-polygons.push(poly);
-
-if(zoom>=11){
-let label=L.marker([d.centerLat,d.centerLng],{
-icon:L.divIcon({
-html:`<div class="mapLabel">${d.name} (${d.count})</div>`
-})
-}).addTo(map);
-
-labels.push(label);
+// خوارزمية Convex Hull
+function convexHull(points) {
+    const pts = points.map(p => [p.lat, p.lng]);
+    if (pts.length <= 3) return pts.map(p => ({ lat: p[0], lng: p[1] }));
+    
+    pts.sort((a, b) => a[0] === b[0] ? a[1] - b[1] : a[0] - b[0]);
+    
+    const cross = (o, a, b) => (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]);
+    const lower = [], upper = [];
+    
+    for (const p of pts) {
+        while (lower.length >= 2 && cross(lower[lower.length - 2], lower[lower.length - 1], p) <= 0) lower.pop();
+        lower.push(p);
+    }
+    
+    for (let i = pts.length - 1; i >= 0; i--) {
+        const p = pts[i];
+        while (upper.length >= 2 && cross(upper[upper.length - 2], upper[upper.length - 1], p) <= 0) upper.pop();
+        upper.push(p);
+    }
+    
+    upper.pop(); lower.pop();
+    return lower.concat(upper).map(p => ({ lat: p[0], lng: p[1] }));
 }
 
-});
+// رسم الرسم البياني الأول - الأحياء
+function drawChart() {
+    if (chart) chart.destroy();
 
-drawChart();
-buildLegend();
-buildExport();
-fitAll();
-}
-
-function convexHull(points){
-const pts=points.map(p=>[p.lat,p.lng]);
-if(pts.length<=3)return pts.map(p=>({lat:p[0],lng:p[1]}));
-pts.sort((a,b)=>a[0]===b[0]?a[1]-b[1]:a[0]-b[0]);
-const cross=(o,a,b)=>(a[0]-o[0])*(b[1]-o[1])-(a[1]-o[1])*(b[0]-o[0]);
-const lower=[],upper=[];
-for(const p of pts){while(lower.length>=2&&cross(lower[lower.length-2],lower[lower.length-1],p)<=0)lower.pop();lower.push(p);}
-for(let i=pts.length-1;i>=0;i--){const p=pts[i];while(upper.length>=2&&cross(upper[upper.length-2],upper[upper.length-1],p)<=0)upper.pop();upper.push(p);}
-upper.pop();lower.pop();
-return lower.concat(upper).map(p=>({lat:p[0],lng:p[1]}));
-}
-
-function drawChart(){
-if(chart)chart.destroy();
-chart=new Chart(document.getElementById("chart"),{
-type:'bar',
-data:{
-labels:visibleDistricts.map(d=>d.name),
-datasets:[{
-data:visibleDistricts.map(d=>d.count),
-backgroundColor:visibleDistricts.map(d=>d.color)
-}]
-}
-});
-}
-
-function drawCategoryChart(){
-if(chart2)chart2.destroy();
-chart2=new Chart(document.getElementById("chart2"),{
-type:'bar',
-data:{
-labels:Object.keys(categoryData),
-datasets:[{
-data:Object.values(categoryData),
-backgroundColor:"#16a34a"
-}]
-}
-});
-}
-
-function buildLegend(){
-document.getElementById("legendBox").innerHTML=
-visibleDistricts.map(d=>`<div style="color:${d.color}">${d.name} (${d.count})</div>`).join("");
-}
-
-function buildExport(){
-exportRows=[["الحي","عدد"]];
-visibleDistricts.forEach(d=>{
-exportRows.push([d.name,d.count]);
-});
-}
-
-function exportExcel(){
-let ws=XLSX.utils.aoa_to_sheet(exportRows);
-let wb=XLSX.utils.book_new();
-XLSX.utils.book_append_sheet(wb,ws,"data");
-XLSX.writeFile(wb,"result.xlsx");
+    const ctx = document.getElementById("chart").getContext("2d");
+    
+    chart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: visibleDistricts.map(d => d.name),
+            datasets: [{
+                label: 'عدد التقارير',
+                data: visibleDistricts.map(d => d.count),
+                backgroundColor: visibleDistricts.map(d => d.color),
+                borderRadius: 10,
+                borderSkipped: false,
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                datalabels: {
+                    anchor: 'end',
+                    align: 'top',
+                    color: '#333',
+                    font: { weight: 'bold', size: 12 },
+                    formatter: (value) => value
+                },
+                tooltip: {
+                    backgroundColor: 'rgba(0,0,0,0.8)',
+                    padding: 12,
+                    cornerRadius: 8,
+                    titleFont: { size: 14 },
+                    bodyFont: { size: 13 }
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    grid: { color: 'rgba(0,0,0,0.05)' },
+                    ticks: { font: { size: 11 } }
+                },
+                x: {
+                    grid: { display: false },
+                    ticks: { 
+                        font: { size: 11 },
+                        maxRotation: 45,
+                        minRotation: 45
+                    }
+                }
+            },
+            animation: {
+                duration: 1000,
+                easing: 'easeOutQuart'
+            }
+        }
+    });
 }
 
-function clearMapLayers(){
-polygons.forEach(p=>map.removeLayer(p));
-labels.forEach(l=>map.removeLayer(l));
-polygons=[];labels=[];
+// رسم الرسم البياني الثاني - التصنيفات
+function drawCategoryChart() {
+    if (chart2) chart2.destroy();
+
+    const ctx = document.getElementById("chart2").getContext("2d");
+    const cats = Object.keys(categoryData);
+    const vals = Object.values(categoryData);
+    
+    chart2 = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: cats,
+            datasets: [{
+                data: vals,
+                backgroundColor: colors.slice(0, cats.length),
+                borderWidth: 3,
+                borderColor: '#fff',
+                hoverOffset: 10
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            cutout: '60%',
+            plugins: {
+                legend: {
+                    position: 'right',
+                    labels: {
+                        usePointStyle: true,
+                        padding: 15,
+                        font: { size: 12 }
+                    }
+                },
+                datalabels: {
+                    color: '#fff',
+                    font: { weight: 'bold', size: 12 },
+                    formatter: (value, ctx) => {
+                        let sum = ctx.dataset.data.reduce((a, b) => a + b, 0);
+                        let percentage = (value * 100 / sum).toFixed(1) + "%";
+                        return percentage;
+                    }
+                }
+            },
+            animation: {
+                animateRotate: true,
+                duration: 1000
+            }
+        }
+    });
 }
 
-function clearAllData(){
-location.reload();
+// بناء الدليل
+function buildLegend() {
+    const container = document.getElementById("legendBox");
+    container.innerHTML = visibleDistricts.slice(0, 10).map(d => `
+        <div class="legend-item" onclick="highlightDistrict('${d.name}')">
+            <div class="legend-color" style="background: ${d.color}"></div>
+            <span>${d.name} (${d.count})</span>
+        </div>
+    `).join("");
 }
 
-function fitAll(){
-let bounds=[];
-visibleDistricts.forEach(d=>{
-d.points.forEach(p=>bounds.push([p.lat,p.lng]));
-});
-if(bounds.length)map.fitBounds(bounds);
+// إبراز حي معين
+function highlightDistrict(name) {
+    const district = visibleDistricts.find(d => d.name === name);
+    if (district) {
+        map.flyTo([district.centerLat, district.centerLng], 15, {
+            duration: 1.5
+        });
+    }
 }
 
+// بناء بيانات التصدير
+function buildExport() {
+    exportRows = [["الحي", "البلدية", "التاريخ", "التصنيف", "عدد النقاط"]];
+    visibleDistricts.forEach(d => {
+        exportRows.push([d.name, d.municipality, d.date, d.category || "غير محدد", d.count]);
+    });
+}
+
+// تصدير Excel
+function exportExcel() {
+    if (exportRows.length <= 1) {
+        alert('لا توجد بيانات للتصدير');
+        return;
+    }
+    
+    let ws = XLSX.utils.aoa_to_sheet(exportRows);
+    let wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "الأحياء");
+    XLSX.writeFile(wb, "تحليل_الأحياء.xlsx");
+}
+
+// تصدير صورة عالية الدقة
+async function exportHighResImage() {
+    const element = document.getElementById('captureArea');
+    
+    // إظهار مؤشر التحميل
+    showNotification('⏳ جاري إنشاء الصورة عالية الدقة...');
+    
+    try {
+        const canvas = await html2canvas(element, {
+            scale: 2, // دقة عالية ×2
+            useCORS: true,
+            allowTaint: true,
+            backgroundColor: '#667eea',
+            logging: false,
+            onclone: (clonedDoc) => {
+                // تعديلات على النسخة المستنسخة قبل التقاطها
+                const clonedMap = clonedDoc.getElementById('map');
+                if (clonedMap) {
+                    clonedMap.style.height = '60vh';
+                }
+            }
+        });
+        
+        // تحويل إلى صورة
+        const image = canvas.toDataURL("image/png", 1.0);
+        
+        // تحميل الصورة
+        const link = document.createElement('a');
+        link.download = `تحليل_الأحياء_${new Date().toLocaleDateString('ar-SA')}.png`;
+        link.href = image;
+        link.click();
+        
+        showNotification('✅ تم تحميل الصورة بنجاح!');
+    } catch (err) {
+        console.error(err);
+        alert('حدث خطأ أثناء تصدير الصورة');
+    }
+}
+
+// زوم على المناطق المفلترة
+function zoomToFiltered() {
+    if (visibleDistricts.length === 0) {
+        alert('لا توجد أحياء مفلترة للتقريب');
+        return;
+    }
+    
+    let bounds = [];
+    visibleDistricts.forEach(d => {
+        d.points.forEach(p => bounds.push([p.lat, p.lng]));
+    });
+    
+    if (bounds.length > 0) {
+        map.flyToBounds(bounds, {
+            padding: [50, 50],
+            maxZoom: 16,
+            duration: 1.5
+        });
+    }
+}
+
+// إظهار الكل
+function fitAll() {
+    if (visibleDistricts.length === 0) return;
+    
+    let bounds = [];
+    visibleDistricts.forEach(d => {
+        d.points.forEach(p => bounds.push([p.lat, p.lng]));
+    });
+    
+    if (bounds.length) {
+        map.fitBounds(bounds, { padding: [50, 50] });
+    }
+}
+
+// مسح الطبقات
+function clearMapLayers() {
+    polygons.forEach(p => map.removeLayer(p));
+    labels.forEach(l => map.removeLayer(l));
+    polygons = [];
+    labels = [];
+}
+
+// مسح الكل
+function clearAllData() {
+    if (confirm('هل أنت متأكد من مسح جميع البيانات؟')) {
+        location.reload();
+    }
+}
+
+// إشعار
+function showNotification(message) {
+    const notif = document.createElement('div');
+    notif.style.cssText = `
+        position: fixed;
+        top: 90px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: rgba(0,0,0,0.8);
+        color: white;
+        padding: 15px 30px;
+        border-radius: 30px;
+        font-weight: 600;
+        z-index: 10001;
+        animation: slideIn 0.3s ease;
+    `;
+    notif.textContent = message;
+    document.body.appendChild(notif);
+    
+    setTimeout(() => {
+        notif.style.opacity = '0';
+        setTimeout(() => notif.remove(), 300);
+    }, 3000);
+}
+
+// تهيئة
 initMap();
 
 </script>
-
 </body>
 </html>
