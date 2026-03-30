@@ -65,6 +65,7 @@ const colors=[
 "#ec4899","#14b8a6","#eab308","#6366f1","#10b981"
 ];
 
+// ===== الخريطة =====
 function initMap(){
 map=new google.maps.Map(document.getElementById("map"),{
 center:{lat:21.4,lng:40.4},
@@ -73,6 +74,7 @@ mapTypeId:"hybrid"
 });
 }
 
+// ===== رفع Excel =====
 function loadExcel(){
 
 const file=event.target.files[0];
@@ -92,10 +94,12 @@ process(rows);
 reader.readAsArrayBuffer(file);
 }
 
+// ===== المعالجة (بدون تكرار) =====
 function process(rows){
 
 clearAll();
-clusters=[];
+
+let districtMap={};
 
 for(let i=1;i<rows.length;i++){
 
@@ -104,38 +108,33 @@ if(!row) continue;
 
 const lng=parseFloat(row[0]);
 const lat=parseFloat(row[1]);
-const name=row[2]||"حي غير معروف";
+const name=(row[2]||"حي غير معروف").trim();
 
 if(isNaN(lat)||isNaN(lng)) continue;
 
-addCluster(lat,lng,name);
+// 🔥 بدون تكرار
+if(districtMap[name]){
+districtMap[name].points.push({lat,lng});
+districtMap[name].count++;
+}else{
+districtMap[name]={
+name:name,
+lat:lat,
+lng:lng,
+points:[{lat,lng}],
+count:1
+};
 }
 
+}
+
+clusters=Object.values(districtMap);
 allClusters=[...clusters];
+
 applyFilter("all");
 }
 
-function addCluster(lat,lng,name){
-
-for(let c of clusters){
-const d=distance(lat,lng,c.lat,c.lng);
-
-if(d<=0.1){
-c.points.push({lat,lng});
-c.count++;
-if(c.name==="حي غير معروف" && name) c.name=name;
-return;
-}
-}
-
-clusters.push({
-lat,lng,
-points:[{lat,lng}],
-count:1,
-name:name||"حي غير معروف"
-});
-}
-
+// ===== الفلترة =====
 function applyFilter(val){
 
 clearAll();
@@ -154,26 +153,29 @@ drawAll();
 drawChart();
 }
 
+// ===== الرسم =====
 function drawAll(){
 
 clusters.forEach((c,i)=>{
 
 const color=colors[i%colors.length];
 
-// 🔥 تم التعديل هنا
+// 🔥 دائرة واضحة فوق الخريطة
 const circle=new google.maps.Circle({
 center:{lat:c.lat,lng:c.lng},
-radius:800, // ✅ جاهز لك
+radius:800,
 strokeColor:color,
 strokeOpacity:1,
-strokeWeight:2,
+strokeWeight:3,
 fillColor:color,
-fillOpacity:0.3,
-map:map
+fillOpacity:0.5,
+map:map,
+zIndex:999
 });
 
 circles.push(circle);
 
+// 🔥 اسم الحي + العدد
 const label=new google.maps.Marker({
 position:{lat:c.lat,lng:c.lng},
 map:map,
@@ -194,6 +196,7 @@ markers.push(label);
 });
 }
 
+// ===== الرسم البياني =====
 function drawChart(){
 
 const ctx=document.getElementById("chart");
@@ -216,19 +219,7 @@ plugins:{legend:{display:false}}
 });
 }
 
-function distance(lat1, lon1, lat2, lon2){
-const R=6371;
-const dLat=(lat2-lat1)*Math.PI/180;
-const dLon=(lon2-lon1)*Math.PI/180;
-
-const a=
-Math.sin(dLat/2)**2+
-Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*
-Math.sin(dLon/2)**2;
-
-return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
-}
-
+// ===== تنظيف =====
 function clearAll(){
 markers.forEach(m=>m.setMap(null));
 circles.forEach(c=>c.setMap(null));
