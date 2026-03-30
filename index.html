@@ -3,8 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>تحليل الأحياء - بدون تكرار</title>
+<title>تحليل الأحياء - مجاني 100%</title>
 
+<!-- كل المكتبات مجانية -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
@@ -188,7 +189,7 @@ body {
     width: 100%;
 }
 
-/* ✅ تنسيق محسّن لليبل - يمنع التكرار */
+/* ✅ تنسيق محسّن لليبل */
 .map-label-container {
     background: rgba(255, 255, 255, 0.95);
     padding: 8px 14px;
@@ -378,12 +379,8 @@ function processRows(rows) {
         if (!categoryData[category]) categoryData[category] = 0;
         categoryData[category]++;
 
-        // ✅ مفتاح فريد يعتمد على الاسم + البلدية + التاريخ + الإحداثيات التقريبية
-        // لتجنب تكرار نفس الحي في نفس الموقع
-        let latKey = Math.round(lat * 100) / 100;
-        let lngKey = Math.round(lng * 100) / 100;
-        let key = name + "||" + muni + "||" + date + "||" + latKey + "||" + lngKey;
-
+        // مفتاح فريد مؤقت
+        let key = name + "||" + muni + "||" + date + "||" + i;
         if (!mapData[key]) {
             mapData[key] = { name, municipality: muni, date, points: [], categories: new Set() };
         }
@@ -394,17 +391,21 @@ function processRows(rows) {
     fillSelect("municipalityFilter", allMunicipalities);
     fillSelect("dateFilter", allDates);
 
-    // ✅ إزالة التكرار بناءً على الاسم فقط (اختياري - حسب الحاجة)
-    // إذا تبي تدمج الأحياء بنفس الاسم حتى لو بتواريخ مختلفة:
+    // ✅ دمج الأحياء بنفس الاسم والبلدية
     let mergedData = {};
     Object.values(mapData).forEach(d => {
         let mergeKey = d.name + "||" + d.municipality;
         if (!mergedData[mergeKey]) {
-            mergedData[mergeKey] = { ...d, points: [], categories: new Set() };
+            mergedData[mergeKey] = { 
+                name: d.name, 
+                municipality: d.municipality, 
+                date: d.date, 
+                points: [], 
+                categories: new Set() 
+            };
         }
-        // دمج النقاط
+        // دمج النقاط بدون تكرار
         d.points.forEach(p => {
-            // التحقق من عدم وجود نقطة قريبة جداً (تكرار)
             let isDuplicate = mergedData[mergeKey].points.some(existing => 
                 Math.abs(existing.lat - p.lat) < 0.0001 && 
                 Math.abs(existing.lng - p.lng) < 0.0001
@@ -417,9 +418,8 @@ function processRows(rows) {
         d.categories.forEach(c => mergedData[mergeKey].categories.add(c));
     });
 
-    // استخدام البيانات المدمجة بدلاً من الأصلية (اختياري)
-    // rawDistricts = Object.values(mergedData).map((d, i) => {
-    rawDistricts = Object.values(mapData).map((d, i) => {
+    // ✅ استخدام البيانات المدمجة (بدون تكرار)
+    rawDistricts = Object.values(mergedData).map((d, i) => {
         let cLat = d.points.reduce((s, p) => s + p.lat, 0) / d.points.length;
         let cLng = d.points.reduce((s, p) => s + p.lng, 0) / d.points.length;
         
@@ -429,7 +429,7 @@ function processRows(rows) {
             centerLat: cLat,
             centerLng: cLng,
             color: colors[i % colors.length],
-            uniqueId: i // ✅ معرف فريد لكل حي
+            uniqueId: i
         };
     }).sort((a, b) => b.count - a.count);
 
@@ -438,7 +438,7 @@ function processRows(rows) {
     document.getElementById("topDistrict").textContent = rawDistricts[0]?.name || "-";
 
     applyCurrentFilter();
-    showNotification(`✅ تم تحميل ${total} تقرير من ${rawDistricts.length} حي`);
+    showNotification(`✅ تم تحميل ${total} تقرير من ${rawDistricts.length} حي فريد`);
 }
 
 function fillSelect(id, set) {
@@ -473,9 +473,6 @@ function draw() {
     clearMapLayers();
     let zoom = map.getZoom();
 
-    // ✅ تتبع المواقع المستخدمة لتجنب تداخل الليبلات
-    let usedPositions = [];
-
     visibleDistricts.forEach((d, index) => {
         let hull = convexHull(d.points);
         let factor = zoom < 10 ? 0.5 : zoom < 13 ? 0.2 : 0.05;
@@ -498,30 +495,20 @@ function draw() {
 
         polygons.push(poly);
 
-        // ✅ التحقق من عدم وجود ليبل في نفس الموقع تقريباً
-        let isPositionUsed = usedPositions.some(pos => 
-            Math.abs(pos.lat - d.centerLat) < 0.001 && 
-            Math.abs(pos.lng - d.centerLng) < 0.001
-        );
+        // ✅ ليبل واحد فقط لكل حي
+        let label = L.marker([d.centerLat, d.centerLng], {
+            icon: L.divIcon({
+                className: 'custom-label',
+                html: `<div class="map-label-container" style="--district-color: ${d.color}; border-color: ${d.color};">
+                    <span class="map-label-name">${d.name}</span>
+                    <span class="map-label-count">${d.count}</span>
+                </div>`,
+                iconSize: null,
+                iconAnchor: [50, 20]
+            })
+        }).addTo(map);
 
-        if (!isPositionUsed) {
-            usedPositions.push({ lat: d.centerLat, lng: d.centerLng });
-
-            // ✅ ليبل محسّن - تنسيق CSS واضح
-            let label = L.marker([d.centerLat, d.centerLng], {
-                icon: L.divIcon({
-                    className: 'custom-label',
-                    html: `<div class="map-label-container" style="--district-color: ${d.color}; border-color: ${d.color};">
-                        <span class="map-label-name">${d.name}</span>
-                        <span class="map-label-count">${d.count}</span>
-                    </div>`,
-                    iconSize: null,
-                    iconAnchor: [50, 20] // توسيط الليبل
-                })
-            }).addTo(map);
-
-            labels.push(label);
-        }
+        labels.push(label);
     });
 
     drawChart();
