@@ -3,39 +3,74 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>تحليل الأحياء الاحترافي - مجاني</title>
+<title>تحليل الأحياء - النسخة الخارقة المجانية</title>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
 
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
 <style>
+*{box-sizing:border-box}
 body{margin:0;font-family:tahoma;background:#f5f7fb}
-
 .top{
 position:absolute;top:10px;left:50%;transform:translateX(-50%);
-background:#fff;padding:10px;border-radius:10px;
-box-shadow:0 4px 10px rgba(0,0,0,.2);
-z-index:1000;display:flex;gap:10px;flex-wrap:wrap
+background:#fff;padding:10px 12px;border-radius:12px;
+box-shadow:0 4px 14px rgba(0,0,0,.18);z-index:1000;
+display:flex;gap:8px;flex-wrap:wrap;align-items:center;justify-content:center;
+max-width:95vw
 }
-
-#map{height:70vh;width:100%}
-.chartBox{height:30vh;background:#fff;padding:10px}
-
-button{
-padding:6px 12px;border:none;background:#0ea5e9;
-color:#fff;border-radius:6px;cursor:pointer
+.top input,.top select,.top button{
+padding:8px 10px;border-radius:8px;border:1px solid #dbe2ea;font-family:tahoma;font-size:13px
 }
-
-.label{
-background:#fff;
+.top button{
+background:#0ea5e9;color:#fff;border:none;cursor:pointer
+}
+.top button:hover{opacity:.92}
+#map{height:68vh;width:100%}
+.bottomWrap{
+height:32vh;
+display:grid;
+grid-template-columns:340px 1fr;
+gap:10px;
+padding:10px;
+background:#f5f7fb
+}
+.card{
+background:#fff;border-radius:14px;box-shadow:0 4px 12px rgba(0,0,0,.08);padding:12px;overflow:hidden
+}
+.statsGrid{
+display:grid;
+grid-template-columns:1fr;
+gap:8px;
+margin-bottom:10px
+}
+.stat{
+background:linear-gradient(135deg,#2563eb,#1d4ed8);
+color:#fff;border-radius:12px;padding:10px;text-align:center
+}
+.stat h4{margin:0 0 6px;font-size:12px}
+.stat .num{font-size:22px;font-weight:bold}
+.cardTitle{margin:0 0 10px;font-size:14px;font-weight:bold;color:#1f2937}
+#chartBox{height:100%}
+.legendBox{max-height:150px;overflow:auto}
+.legendItem{display:flex;align-items:center;gap:8px;padding:4px 0;font-size:12px}
+.legendColor{width:14px;height:14px;border-radius:4px;flex:0 0 14px}
+.mapLabel{
+background:rgba(255,255,255,.95);
+border:1px solid rgba(0,0,0,.15);
 padding:4px 8px;
-border-radius:6px;
+border-radius:8px;
 font-size:12px;
 font-weight:bold;
-border:1px solid #ccc;
+white-space:nowrap;
+box-shadow:0 2px 6px rgba(0,0,0,.12)
+}
+@media(max-width:900px){
+#map{height:62vh}
+.bottomWrap{grid-template-columns:1fr;height:auto}
+#chartBox{height:260px}
 }
 </style>
 </head>
@@ -43,254 +78,481 @@ border:1px solid #ccc;
 <body>
 
 <div class="top">
-<input type="file" id="file">
-<button onclick="loadExcel()">رفع</button>
+  <input type="file" id="file" accept=".xlsx,.xls">
+  <button onclick="loadExcel()">رفع</button>
 
-<select onchange="applyFilter(this.value)">
-<option value="all">الكل</option>
-<option value="5">أعلى 5</option>
-<option value="10">أعلى 10</option>
-</select>
+  <select id="filterSelect" onchange="applyFilter(this.value)">
+    <option value="all">الكل</option>
+    <option value="5">أعلى 5</option>
+    <option value="10">أعلى 10</option>
+  </select>
+
+  <input type="text" id="searchBox" placeholder="بحث باسم الحي..." oninput="applyCurrentFilter()">
+
+  <button onclick="toggleMapType()">تغيير الخريطة</button>
+  <button onclick="fitAll()">إظهار الكل</button>
+  <button onclick="exportExcel()">تصدير النتائج</button>
+  <button onclick="clearAllData()">مسح</button>
 </div>
 
 <div id="map"></div>
 
-<div class="chartBox">
-<canvas id="chart"></canvas>
+<div class="bottomWrap">
+  <div class="card">
+    <div class="statsGrid">
+      <div class="stat">
+        <h4>إجمالي البلاغات</h4>
+        <div class="num" id="totalReports">0</div>
+      </div>
+      <div class="stat">
+        <h4>عدد الأحياء الفريدة</h4>
+        <div class="num" id="totalDistricts">0</div>
+      </div>
+      <div class="stat">
+        <h4>أعلى حي</h4>
+        <div class="num" id="topDistrict">-</div>
+      </div>
+    </div>
+
+    <div class="cardTitle">مفتاح الألوان</div>
+    <div id="legendBox" class="legendBox"></div>
+  </div>
+
+  <div class="card">
+    <div class="cardTitle">الرسم البياني</div>
+    <div id="chartBox">
+      <canvas id="chart"></canvas>
+    </div>
+  </div>
 </div>
 
 <script>
-
 let map;
-let polygons=[];
-let labels=[];
-let clusters=[];
-let allClusters=[];
-let chart=null;
+let osmLayer, satelliteLikeLayer;
+let currentMapType = "osm";
 
-// ===== الخريطة =====
+let polygons = [];
+let labels = [];
+let chart = null;
+
+let rawDistricts = [];
+let visibleDistricts = [];
+let exportRows = [["الحي","عدد البلاغات","متوسط X","متوسط Y"]];
+
 function initMap(){
-map = L.map('map').setView([21.4,40.4],10);
+  map = L.map('map', {zoomControl:true}).setView([21.4,40.4], 10);
 
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
-attribution:'© OpenStreetMap'
-}).addTo(map);
+  osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© OpenStreetMap',
+    maxZoom: 19
+  });
+
+  satelliteLikeLayer = L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
+    attribution: '© OpenTopoMap',
+    maxZoom: 17
+  });
+
+  osmLayer.addTo(map);
 }
 
-// ===== رفع Excel =====
+function toggleMapType(){
+  if(currentMapType === "osm"){
+    map.removeLayer(osmLayer);
+    satelliteLikeLayer.addTo(map);
+    currentMapType = "sat";
+  }else{
+    map.removeLayer(satelliteLikeLayer);
+    osmLayer.addTo(map);
+    currentMapType = "osm";
+  }
+}
+
+function normalizeName(name){
+  return String(name || "")
+    .trim()
+    .replace(/\s+/g,' ')
+    .replace(/[أإآ]/g,'ا')
+    .replace(/ة/g,'ه')
+    .toLowerCase();
+}
+
+function getDistanceMeters(a, b){
+  const R = 6371000;
+  const dLat = (b.lat - a.lat) * Math.PI / 180;
+  const dLng = (b.lng - a.lng) * Math.PI / 180;
+  const lat1 = a.lat * Math.PI / 180;
+  const lat2 = b.lat * Math.PI / 180;
+
+  const x = Math.sin(dLat/2) * Math.sin(dLat/2) +
+            Math.cos(lat1) * Math.cos(lat2) *
+            Math.sin(dLng/2) * Math.sin(dLng/2);
+
+  return 2 * R * Math.atan2(Math.sqrt(x), Math.sqrt(1-x));
+}
+
+function clusterPoints(points, maxDistanceMeters = 100){
+  const groups = [];
+
+  points.forEach(p => {
+    let joined = false;
+
+    for(const g of groups){
+      const d = getDistanceMeters(
+        {lat:p.lat, lng:p.lng},
+        {lat:g.centerLat, lng:g.centerLng}
+      );
+
+      if(d <= maxDistanceMeters){
+        g.points.push({lat:p.lat, lng:p.lng});
+        g.count++;
+
+        const sumLat = g.points.reduce((s, pt) => s + pt.lat, 0);
+        const sumLng = g.points.reduce((s, pt) => s + pt.lng, 0);
+        g.centerLat = sumLat / g.points.length;
+        g.centerLng = sumLng / g.points.length;
+
+        joined = true;
+        break;
+      }
+    }
+
+    if(!joined){
+      groups.push({
+        points:[{lat:p.lat, lng:p.lng}],
+        count:1,
+        centerLat:p.lat,
+        centerLng:p.lng
+      });
+    }
+  });
+
+  return groups;
+}
+
 function loadExcel(){
-const file=document.getElementById("file").files[0];
-if(!file){alert("اختر ملف");return;}
+  const file = document.getElementById("file").files[0];
+  if(!file){
+    alert("اختر ملف Excel أولاً");
+    return;
+  }
 
-const reader=new FileReader();
+  const reader = new FileReader();
 
-reader.onload=e=>{
-const data=new Uint8Array(e.target.result);
-const workbook=XLSX.read(data,{type:"array"});
-const sheet=workbook.Sheets[workbook.SheetNames[0]];
-const rows=XLSX.utils.sheet_to_json(sheet,{header:1});
+  reader.onload = function(e){
+    try{
+      const data = new Uint8Array(e.target.result);
+      const workbook = XLSX.read(data, {type:"array"});
+      const sheet = workbook.Sheets[workbook.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(sheet, {header:1});
+      processRows(rows);
+    }catch(err){
+      console.error(err);
+      alert("حدث خطأ في قراءة الملف");
+    }
+  };
 
-process(rows);
-};
-
-reader.readAsArrayBuffer(file);
+  reader.readAsArrayBuffer(file);
 }
 
-// ===== تنظيف الاسم =====
-function cleanName(name){
-return name.replace(/\s+/g,'').toLowerCase();
+function processRows(rows){
+  clearMapLayers();
+
+  const districtMap = {};
+  let totalReports = 0;
+
+  for(let i=1; i<rows.length; i++){
+    const row = rows[i];
+    if(!row) continue;
+
+    const lng = parseFloat(row[0]);
+    const lat = parseFloat(row[1]);
+    const originalName = String(row[2] || "غير معروف").trim();
+
+    if(isNaN(lat) || isNaN(lng)) continue;
+
+    totalReports++;
+
+    const key = normalizeName(originalName) || "غير معروف";
+
+    if(!districtMap[key]){
+      districtMap[key] = {
+        name: originalName || "غير معروف",
+        points: []
+      };
+    }
+
+    districtMap[key].points.push({lat, lng});
+  }
+
+  rawDistricts = Object.values(districtMap).map((d, idx) => {
+    const grouped = clusterPoints(d.points, 100);
+
+    let mergedPoints = [];
+    grouped.forEach(g => {
+      mergedPoints.push(...g.points);
+    });
+
+    const centerLat = mergedPoints.reduce((s,p)=>s+p.lat,0) / mergedPoints.length;
+    const centerLng = mergedPoints.reduce((s,p)=>s+p.lng,0) / mergedPoints.length;
+
+    return {
+      name: d.name,
+      points: mergedPoints,
+      count: mergedPoints.length,
+      centerLat,
+      centerLng,
+      color: getColorByRank(idx, d.points.length)
+    };
+  }).sort((a,b)=>b.count-a.count);
+
+  rawDistricts.forEach((d, idx) => {
+    d.color = getColorByRank(idx, d.count);
+  });
+
+  document.getElementById("totalReports").textContent = totalReports.toLocaleString();
+  document.getElementById("totalDistricts").textContent = rawDistricts.length.toLocaleString();
+  document.getElementById("topDistrict").textContent = rawDistricts[0] ? rawDistricts[0].name : "-";
+
+  applyCurrentFilter();
 }
 
-// ===== معالجة =====
-function process(rows){
-
-clearMap();
-
-let mapData={};
-
-for(let i=1;i<rows.length;i++){
-
-const row=rows[i];
-if(!row) continue;
-
-const lat=parseFloat(row[1]);
-const lng=parseFloat(row[0]);
-let name=(row[2]||"غير معروف").trim();
-
-if(isNaN(lat)||isNaN(lng)) continue;
-
-const key=cleanName(name);
-
-if(!mapData[key]){
-mapData[key]={name:name,points:[],count:0};
+function getColorByRank(index, count){
+  const palette = [
+    "#dc2626","#ea580c","#ca8a04","#16a34a","#0891b2",
+    "#2563eb","#7c3aed","#db2777","#0f766e","#65a30d",
+    "#be123c","#9333ea","#0284c7","#15803d","#d97706"
+  ];
+  return palette[index % palette.length];
 }
 
-mapData[key].points.push({lat,lng});
-mapData[key].count++;
+function applyCurrentFilter(){
+  applyFilter(document.getElementById("filterSelect").value);
 }
 
-allClusters=Object.values(mapData);
-clusters=[...allClusters];
+function applyFilter(value){
+  clearMapLayers();
 
-drawAll();
-drawChart();
+  const q = normalizeName(document.getElementById("searchBox").value);
+
+  let arr = [...rawDistricts];
+
+  if(q){
+    arr = arr.filter(d => normalizeName(d.name).includes(q));
+  }
+
+  if(value === "5"){
+    visibleDistricts = arr.slice(0,5);
+  }else if(value === "10"){
+    visibleDistricts = arr.slice(0,10);
+  }else{
+    visibleDistricts = arr;
+  }
+
+  drawDistricts();
+  drawChart();
+  buildLegend();
+  buildExportData();
+  fitAll();
 }
 
-// ===== رسم =====
-function drawAll(){
-
-clearMap();
-
-let bounds=[];
-
-clusters.forEach(c=>{
-
-const color =
-c.count>10 ? "#dc2626" :
-c.count>5 ? "#f59e0b" :
-"#16a34a";
-
-// 🔥 hull
-let hull = convexHull(c.points);
-
-// 🔥 تكبير الشكل
-hull = expandPolygon(hull, 0.002);
-
-// 🔥 رسم المضلع
-const polygon = L.polygon(
-hull.map(p=>[p.lat,p.lng]),
-{
-color:color,
-fillColor:color,
-fillOpacity:0.4,
-weight:2
-}).addTo(map);
-
-polygons.push(polygon);
-
-// مركز
-const center = polygon.getBounds().getCenter();
-
-// اسم الحي
-const label = L.marker(center,{
-icon:L.divIcon({
-className:'label',
-html:c.name + " (" + c.count + ")"
-})
-}).addTo(map);
-
-labels.push(label);
-
-// حدود
-hull.forEach(p=>bounds.push([p.lat,p.lng]));
-
-});
-
-// تكبير تلقائي
-if(bounds.length){
-map.fitBounds(bounds);
+function buildExportData(){
+  exportRows = [["الحي","عدد البلاغات","متوسط X","متوسط Y"]];
+  visibleDistricts.forEach(d => {
+    exportRows.push([
+      d.name,
+      d.count,
+      d.centerLng,
+      d.centerLat
+    ]);
+  });
 }
 
+function exportExcel(){
+  if(exportRows.length <= 1){
+    alert("لا توجد بيانات للتصدير");
+    return;
+  }
+
+  const ws = XLSX.utils.aoa_to_sheet(exportRows);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "الاحياء");
+  XLSX.writeFile(wb, "تحليل_الأحياء_الخارق.xlsx");
 }
 
-// ===== تكبير المضلع =====
-function expandPolygon(points,factor){
+function clearAllData(){
+  document.getElementById("file").value = "";
+  document.getElementById("searchBox").value = "";
+  rawDistricts = [];
+  visibleDistricts = [];
+  exportRows = [["الحي","عدد البلاغات","متوسط X","متوسط Y"]];
+  clearMapLayers();
 
-const center={
-lat:points.reduce((s,p)=>s+p.lat,0)/points.length,
-lng:points.reduce((s,p)=>s+p.lng,0)/points.length
-};
+  document.getElementById("totalReports").textContent = "0";
+  document.getElementById("totalDistricts").textContent = "0";
+  document.getElementById("topDistrict").textContent = "-";
+  document.getElementById("legendBox").innerHTML = "";
 
-return points.map(p=>{
-return{
-lat:center.lat+(p.lat-center.lat)*(1+factor),
-lng:center.lng+(p.lng-center.lng)*(1+factor)
-};
-});
+  if(chart){
+    chart.destroy();
+    chart = null;
+  }
 
+  map.setView([21.4,40.4],10);
 }
 
-// ===== hull =====
+function clearMapLayers(){
+  polygons.forEach(p => map.removeLayer(p));
+  labels.forEach(l => map.removeLayer(l));
+  polygons = [];
+  labels = [];
+}
+
+function fitAll(){
+  if(!visibleDistricts.length) return;
+
+  const bounds = [];
+
+  visibleDistricts.forEach(d => {
+    d.points.forEach(p => bounds.push([p.lat, p.lng]));
+  });
+
+  if(bounds.length){
+    map.fitBounds(bounds, {padding:[30,30]});
+  }
+}
+
+function drawDistricts(){
+  visibleDistricts.forEach(d => {
+    let hull = convexHull(d.points);
+
+    if(hull.length < 3){
+      hull = createCirclePolygon(d.centerLat, d.centerLng, 700, 22);
+    }else{
+      hull = expandPolygon(hull, d.centerLat, d.centerLng, 0.18);
+    }
+
+    const polygon = L.polygon(
+      hull.map(p => [p.lat, p.lng]),
+      {
+        color: d.color,
+        weight: 2,
+        fillColor: d.color,
+        fillOpacity: 0.35
+      }
+    ).addTo(map);
+
+    polygon.bindPopup(`<b>${d.name}</b><br>العدد: ${d.count}`);
+    polygons.push(polygon);
+
+    const center = polygon.getBounds().getCenter();
+
+    const label = L.marker(center, {
+      icon: L.divIcon({
+        className: '',
+        html: `<div class="mapLabel">${d.name} (${d.count})</div>`,
+        iconSize: null
+      })
+    }).addTo(map);
+
+    labels.push(label);
+  });
+}
+
 function convexHull(points){
+  const pts = points.map(p => [p.lat, p.lng]);
 
-points=points.map(p=>[p.lat,p.lng]);
+  if(pts.length <= 3){
+    return pts.map(p => ({lat:p[0], lng:p[1]}));
+  }
 
-points.sort((a,b)=> a[0]===b[0]?a[1]-b[1]:a[0]-b[0]);
+  pts.sort((a,b)=>a[0]===b[0] ? a[1]-b[1] : a[0]-b[0]);
 
-const cross=(o,a,b)=>
-(a[0]-o[0])*(b[1]-o[1])-(a[1]-o[1])*(b[0]-o[0]);
+  const cross = (o,a,b) => (a[0]-o[0])*(b[1]-o[1]) - (a[1]-o[1])*(b[0]-o[0]);
 
-let lower=[];
-for(let p of points){
-while(lower.length>=2 && cross(lower[lower.length-2],lower[lower.length-1],p)<=0){
-lower.pop();
-}
-lower.push(p);
-}
+  const lower = [];
+  for(const p of pts){
+    while(lower.length >= 2 && cross(lower[lower.length-2], lower[lower.length-1], p) <= 0){
+      lower.pop();
+    }
+    lower.push(p);
+  }
 
-let upper=[];
-for(let i=points.length-1;i>=0;i--){
-let p=points[i];
-while(upper.length>=2 && cross(upper[upper.length-2],upper[upper.length-1],p)<=0){
-upper.pop();
-}
-upper.push(p);
-}
+  const upper = [];
+  for(let i=pts.length-1; i>=0; i--){
+    const p = pts[i];
+    while(upper.length >= 2 && cross(upper[upper.length-2], upper[upper.length-1], p) <= 0){
+      upper.pop();
+    }
+    upper.push(p);
+  }
 
-upper.pop();
-lower.pop();
+  upper.pop();
+  lower.pop();
 
-return lower.concat(upper).map(p=>({lat:p[0],lng:p[1]}));
-}
-
-// ===== فلترة =====
-function applyFilter(val){
-
-let sorted=[...allClusters].sort((a,b)=>b.count-a.count);
-
-if(val==="5"){
-clusters=sorted.slice(0,5);
-}else if(val==="10"){
-clusters=sorted.slice(0,10);
-}else{
-clusters=sorted;
+  return lower.concat(upper).map(p => ({lat:p[0], lng:p[1]}));
 }
 
-drawAll();
-drawChart();
+function expandPolygon(points, centerLat, centerLng, factor){
+  return points.map(p => ({
+    lat: centerLat + (p.lat - centerLat) * (1 + factor),
+    lng: centerLng + (p.lng - centerLng) * (1 + factor)
+  }));
 }
 
-// ===== الرسم البياني =====
+function createCirclePolygon(lat, lng, radiusMeters, steps=24){
+  const pts = [];
+  const metersPerDegreeLat = 111320;
+  const metersPerDegreeLng = 111320 * Math.cos(lat * Math.PI / 180);
+
+  for(let i=0; i<steps; i++){
+    const angle = (i / steps) * Math.PI * 2;
+    const dLat = (radiusMeters * Math.cos(angle)) / metersPerDegreeLat;
+    const dLng = (radiusMeters * Math.sin(angle)) / metersPerDegreeLng;
+    pts.push({lat: lat + dLat, lng: lng + dLng});
+  }
+
+  return pts;
+}
+
+function buildLegend(){
+  const box = document.getElementById("legendBox");
+  box.innerHTML = visibleDistricts.map(d => `
+    <div class="legendItem">
+      <span class="legendColor" style="background:${d.color}"></span>
+      <span>${d.name} - ${d.count}</span>
+    </div>
+  `).join("");
+}
+
 function drawChart(){
+  const ctx = document.getElementById("chart").getContext("2d");
 
-const ctx=document.getElementById("chart");
+  if(chart) chart.destroy();
 
-if(chart) chart.destroy();
-
-chart=new Chart(ctx,{
-type:"bar",
-data:{
-labels:clusters.map(c=>c.name),
-datasets:[{
-data:clusters.map(c=>c.count),
-backgroundColor:"#2563eb"
-}]
-},
-options:{responsive:true}
-});
+  chart = new Chart(ctx, {
+    type: "bar",
+    data: {
+      labels: visibleDistricts.map(d => d.name),
+      datasets: [{
+        data: visibleDistricts.map(d => d.count),
+        backgroundColor: visibleDistricts.map(d => d.color),
+        borderRadius: 6
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false }
+      },
+      scales: {
+        y: { beginAtZero: true }
+      }
+    }
+  });
 }
 
-// ===== تنظيف =====
-function clearMap(){
-polygons.forEach(p=>map.removeLayer(p));
-labels.forEach(l=>map.removeLayer(l));
-polygons=[];
-labels=[];
-}
-
-// تشغيل
 initMap();
-
 </script>
 
 </body>
