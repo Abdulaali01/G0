@@ -1,578 +1,225 @@
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>تحليل الأحياء - النسخة الجبارة</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>تحليل الأحياء - بدون تكلفة</title>
 
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
-  <style>
-    *{box-sizing:border-box}
-    body{
-      margin:0;
-      font-family:tahoma, Arial, sans-serif;
-      background:#f5f7fb;
-    }
+<style>
+body{margin:0;font-family:tahoma;background:#f5f7fb}
+#map{height:70vh;width:100%}
 
-    #map{
-      width:100%;
-      height:68vh;
-    }
+.top{
+position:absolute;
+top:10px;
+left:50%;
+transform:translateX(-50%);
+background:#fff;
+padding:10px;
+border-radius:10px;
+box-shadow:0 4px 10px rgba(0,0,0,.2);
+z-index:1000;
+display:flex;
+gap:10px;
+flex-wrap:wrap
+}
 
-    .toolbar{
-      position:absolute;
-      top:10px;
-      left:50%;
-      transform:translateX(-50%);
-      z-index:10;
-      background:#fff;
-      border-radius:14px;
-      box-shadow:0 8px 24px rgba(0,0,0,.18);
-      padding:10px;
-      display:flex;
-      gap:8px;
-      flex-wrap:wrap;
-      align-items:center;
-      justify-content:center;
-      width:min(95vw,1100px);
-    }
-
-    .toolbar input[type="file"],
-    .toolbar select,
-    .toolbar button{
-      padding:10px 12px;
-      border-radius:10px;
-      border:1px solid #dbe2ea;
-      font-size:14px;
-    }
-
-    .toolbar button{
-      border:none;
-      background:#2563eb;
-      color:#fff;
-      cursor:pointer;
-      font-weight:700;
-    }
-
-    .toolbar button:hover{
-      opacity:.92;
-    }
-
-    .toolbar .success{
-      background:#16a34a;
-    }
-
-    .toolbar .orange{
-      background:#ea580c;
-    }
-
-    .toolbar .purple{
-      background:#7c3aed;
-    }
-
-    .bottomPanel{
-      height:32vh;
-      display:grid;
-      grid-template-columns: 360px 1fr;
-      gap:12px;
-      padding:12px;
-    }
-
-    .card{
-      background:#fff;
-      border-radius:16px;
-      box-shadow:0 4px 14px rgba(0,0,0,.08);
-      padding:12px;
-      overflow:hidden;
-    }
-
-    .stats{
-      display:grid;
-      grid-template-columns:1fr;
-      gap:10px;
-      margin-bottom:10px;
-    }
-
-    .stat{
-      background:linear-gradient(135deg,#1d4ed8,#2563eb);
-      color:#fff;
-      border-radius:14px;
-      padding:12px;
-      text-align:center;
-    }
-
-    .stat h3{
-      margin:0 0 6px;
-      font-size:13px;
-      font-weight:700;
-      opacity:.95;
-    }
-
-    .stat .num{
-      font-size:24px;
-      font-weight:800;
-    }
-
-    .cardTitle{
-      margin:0 0 10px;
-      font-size:15px;
-      font-weight:800;
-      color:#1f2937;
-    }
-
-    .chartWrap{
-      height:100%;
-      min-height:230px;
-    }
-
-    .legendBox{
-      margin-top:8px;
-      font-size:13px;
-      color:#374151;
-      line-height:1.8;
-      max-height:160px;
-      overflow:auto;
-    }
-
-    .legendItem{
-      display:flex;
-      align-items:center;
-      gap:8px;
-      padding:3px 0;
-    }
-
-    .legendColor{
-      width:14px;
-      height:14px;
-      border-radius:4px;
-      flex:0 0 14px;
-    }
-
-    @media (max-width: 900px){
-      #map{height:62vh}
-      .bottomPanel{
-        grid-template-columns:1fr;
-        height:auto;
-      }
-      .chartWrap{
-        min-height:260px;
-      }
-    }
-  </style>
+.chartBox{
+height:30vh;
+background:#fff;
+padding:10px
+}
+</style>
 </head>
+
 <body>
 
-  <div class="toolbar">
-    <input type="file" id="excelFile" accept=".xlsx,.xls" onchange="loadExcel()" />
-    
-    <select id="filterSelect" onchange="applyFilter(this.value)">
-      <option value="all">الكل</option>
-      <option value="5">أعلى 5 أحياء</option>
-      <option value="10">أعلى 10 أحياء</option>
-    </select>
+<div class="top">
+<input type="file" accept=".xlsx,.xls" onchange="loadExcel()">
 
-    <button onclick="toggleMapType()">تغيير نوع الخريطة</button>
-    <button class="success" onclick="fitAll()">إظهار الكل</button>
-    <button class="orange" onclick="exportExcel()">تصدير Excel</button>
-    <button class="purple" onclick="clearAllData()">مسح</button>
-  </div>
+<select onchange="applyFilter(this.value)">
+<option value="all">الكل</option>
+<option value="5">أعلى 5</option>
+<option value="10">أعلى 10</option>
+</select>
+</div>
 
-  <div id="map"></div>
+<div id="map"></div>
 
-  <div class="bottomPanel">
-    <div class="card">
-      <div class="stats">
-        <div class="stat">
-          <h3>إجمالي البلاغات</h3>
-          <div class="num" id="totalReports">0</div>
-        </div>
-        <div class="stat">
-          <h3>عدد الأحياء الفريدة</h3>
-          <div class="num" id="totalDistricts">0</div>
-        </div>
-        <div class="stat">
-          <h3>أعلى حي</h3>
-          <div class="num" id="topDistrict">-</div>
-        </div>
-      </div>
+<div class="chartBox">
+<canvas id="chart"></canvas>
+</div>
 
-      <h3 class="cardTitle">مفتاح الألوان</h3>
-      <div id="legendBox" class="legendBox"></div>
-    </div>
+<script>
+let map;
+let clusters=[];
+let allClusters=[];
+let layers=[];
+let chart;
 
-    <div class="card">
-      <h3 class="cardTitle">الرسم البياني للأحياء</h3>
-      <div class="chartWrap">
-        <canvas id="districtChart"></canvas>
-      </div>
-    </div>
-  </div>
+// ===== الخريطة =====
+map = L.map('map').setView([21.4,40.4],10);
 
-  <script>
-    let map;
-    let mapType = "roadmap";
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
+maxZoom:19
+}).addTo(map);
 
-    let allDistricts = [];
-    let visibleDistricts = [];
-    let polygons = [];
-    let labels = [];
-    let chart = null;
-    let resultData = [["الحي","عدد البلاغات","متوسط X","متوسط Y"]];
+// ===== رفع Excel =====
+function loadExcel(){
 
-    const COLORS = [
-      "#ef4444","#f97316","#eab308","#22c55e","#06b6d4",
-      "#3b82f6","#8b5cf6","#ec4899","#14b8a6","#84cc16",
-      "#f43f5e","#0ea5e9","#a855f7","#10b981","#f59e0b"
-    ];
+const file=event.target.files[0];
+if(!file){alert("اختر ملف");return;}
 
-    function initMap(){
-      map = new google.maps.Map(document.getElementById("map"),{
-        center:{lat:21.3891,lng:39.8579},
-        zoom:10,
-        mapTypeId: mapType,
-        gestureHandling:"greedy",
-        streetViewControl:false,
-        fullscreenControl:true,
-        mapTypeControl:false
-      });
-    }
+const reader=new FileReader();
 
-    function toggleMapType(){
-      mapType = (mapType === "roadmap") ? "hybrid" : "roadmap";
-      map.setMapTypeId(mapType);
-    }
+reader.onload=e=>{
+const data=new Uint8Array(e.target.result);
+const wb=XLSX.read(data,{type:"array"});
+const sheet=wb.Sheets[wb.SheetNames[0]];
+const rows=XLSX.utils.sheet_to_json(sheet,{header:1});
 
-    function loadExcel(){
-      const file = document.getElementById("excelFile").files[0];
-      if(!file){
-        alert("اختر ملف Excel أولاً");
-        return;
-      }
+process(rows);
+};
 
-      const reader = new FileReader();
+reader.readAsArrayBuffer(file);
+}
 
-      reader.onload = function(e){
-        try{
-          const data = new Uint8Array(e.target.result);
-          const workbook = XLSX.read(data, {type:"array"});
-          const sheet = workbook.Sheets[workbook.SheetNames[0]];
-          const rows = XLSX.utils.sheet_to_json(sheet, {header:1});
-          processRows(rows);
-        }catch(err){
-          alert("خطأ في قراءة الملف");
-          console.error(err);
-        }
-      };
+// ===== المسافة =====
+function getDistance(a,b){
+const R=6371;
+const dLat=(b.lat-a.lat)*Math.PI/180;
+const dLng=(b.lng-a.lng)*Math.PI/180;
 
-      reader.readAsArrayBuffer(file);
-    }
+const x=Math.sin(dLat/2)**2+
+Math.cos(a.lat*Math.PI/180)*Math.cos(b.lat*Math.PI/180)*
+Math.sin(dLng/2)**2;
 
-    function normalizeName(v){
-      return String(v || "")
-        .trim()
-        .replace(/\s+/g," ")
-        .replace(/[أإآ]/g,"ا")
-        .replace(/ة/g,"ه");
-    }
+return 2*R*Math.atan2(Math.sqrt(x),Math.sqrt(1-x));
+}
 
-    function processRows(rows){
-      clearMapLayers();
+// ===== المعالجة =====
+function process(rows){
 
-      const districtMap = {};
-      let totalValid = 0;
+clearMap();
+let temp=[];
 
-      for(let i=1;i<rows.length;i++){
-        const row = rows[i];
-        if(!row) continue;
+for(let i=1;i<rows.length;i++){
 
-        const lng = parseFloat(row[0]);
-        const lat = parseFloat(row[1]);
-        const rawName = row[2] || "حي غير معروف";
-        const name = normalizeName(rawName) || "حي غير معروف";
+const row=rows[i];
+if(!row) continue;
 
-        if(isNaN(lat) || isNaN(lng)) continue;
+const lng=parseFloat(row[0]);
+const lat=parseFloat(row[1]);
+const name=row[2]||"غير معروف";
 
-        totalValid++;
+if(isNaN(lat)||isNaN(lng)) continue;
 
-        if(!districtMap[name]){
-          districtMap[name] = {
-            name,
-            count:0,
-            points:[],
-            latSum:0,
-            lngSum:0
-          };
-        }
+temp.push({lat,lng,name});
+}
 
-        districtMap[name].count++;
-        districtMap[name].points.push({lat,lng});
-        districtMap[name].latSum += lat;
-        districtMap[name].lngSum += lng;
-      }
+// تجميع 100 متر
+let grouped=[];
 
-      allDistricts = Object.values(districtMap).map((d,idx)=>({
-        ...d,
-        centerLat: d.latSum / d.count,
-        centerLng: d.lngSum / d.count,
-        color: COLORS[idx % COLORS.length]
-      })).sort((a,b)=>b.count-a.count);
+temp.forEach(p=>{
 
-      document.getElementById("totalReports").textContent = totalValid.toLocaleString();
-      document.getElementById("totalDistricts").textContent = allDistricts.length.toLocaleString();
-      document.getElementById("topDistrict").textContent = allDistricts[0] ? allDistricts[0].name : "-";
+let found=false;
 
-      applyFilter(document.getElementById("filterSelect").value || "all");
-    }
+for(let g of grouped){
+if(getDistance(p,g)*1000<=100){
+g.count++;
+found=true;
+break;
+}
+}
 
-    function applyFilter(value){
-      clearMapLayers();
+if(!found){
+grouped.push({
+lat:p.lat,
+lng:p.lng,
+name:p.name,
+count:1
+});
+}
 
-      if(value === "5"){
-        visibleDistricts = allDistricts.slice(0,5);
-      }else if(value === "10"){
-        visibleDistricts = allDistricts.slice(0,10);
-      }else{
-        visibleDistricts = [...allDistricts];
-      }
+});
 
-      drawDistricts();
-      drawChart();
-      buildLegend();
-      buildExportData();
-      fitAll();
-    }
+clusters=grouped;
+allClusters=[...clusters];
 
-    function buildExportData(){
-      resultData = [["الحي","عدد البلاغات","متوسط X","متوسط Y"]];
-      visibleDistricts.forEach(d=>{
-        resultData.push([
-          d.name,
-          d.count,
-          d.centerLng,
-          d.centerLat
-        ]);
-      });
-    }
+applyFilter("all");
+}
 
-    function exportExcel(){
-      if(resultData.length <= 1){
-        alert("لا توجد بيانات للتصدير");
-        return;
-      }
-      const ws = XLSX.utils.aoa_to_sheet(resultData);
-      const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, "الاحياء");
-      XLSX.writeFile(wb, "تحليل_الأحياء_الجبارة.xlsx");
-    }
+// ===== الفلترة =====
+function applyFilter(val){
 
-    function clearAllData(){
-      document.getElementById("excelFile").value = "";
-      allDistricts = [];
-      visibleDistricts = [];
-      resultData = [["الحي","عدد البلاغات","متوسط X","متوسط Y"]];
-      clearMapLayers();
+clearMap();
 
-      document.getElementById("totalReports").textContent = "0";
-      document.getElementById("totalDistricts").textContent = "0";
-      document.getElementById("topDistrict").textContent = "-";
-      document.getElementById("legendBox").innerHTML = "";
+let sorted=[...allClusters].sort((a,b)=>b.count-a.count);
 
-      if(chart){
-        chart.destroy();
-        chart = null;
-      }
-    }
+if(val==="5"){
+clusters=sorted.slice(0,5);
+}else if(val==="10"){
+clusters=sorted.slice(0,10);
+}else{
+clusters=sorted;
+}
 
-    function clearMapLayers(){
-      polygons.forEach(p=>p.setMap(null));
-      labels.forEach(m=>m.setMap(null));
-      polygons = [];
-      labels = [];
-    }
+drawAll();
+drawChart();
+}
 
-    function fitAll(){
-      if(!visibleDistricts.length || !map) return;
+// ===== رسم =====
+function drawAll(){
 
-      const bounds = new google.maps.LatLngBounds();
-      visibleDistricts.forEach(d=>{
-        d.points.forEach(p=>bounds.extend(p));
-      });
+clusters.forEach(c=>{
 
-      if(!bounds.isEmpty()){
-        map.fitBounds(bounds, 60);
-      }
-    }
+const color = c.count>10 ? "red" : c.count>5 ? "orange" : "green";
 
-    function drawDistricts(){
-      visibleDistricts.forEach((district, index)=>{
-        const polyPoints = buildSmartBoundary(district.points, district.centerLat, district.centerLng);
+const circle=L.circle([c.lat,c.lng],{
+radius:800,
+color:color,
+fillColor:color,
+fillOpacity:0.5
+}).addTo(map);
 
-        const polygon = new google.maps.Polygon({
-          paths: polyPoints,
-          strokeColor: district.color,
-          strokeOpacity: 1,
-          strokeWeight: 3,
-          fillColor: district.color,
-          fillOpacity: mapType === "hybrid" ? 0.55 : 0.35,
-          map: map,
-          zIndex: 10
-        });
-        polygons.push(polygon);
+circle.bindPopup(c.name+" ("+c.count+")");
 
-        const label = new google.maps.Marker({
-          position:{lat:district.centerLat, lng:district.centerLng},
-          map:map,
-          label:{
-            text:`${district.name} (${district.count})`,
-            color:"#111827",
-            fontSize:"13px",
-            fontWeight:"bold"
-          },
-          icon:{
-            path: google.maps.SymbolPath.CIRCLE,
-            scale: 0
-          },
-          zIndex:9999
-        });
-        labels.push(label);
+layers.push(circle);
 
-        const info = new google.maps.InfoWindow({
-          content: `
-            <div style="direction:rtl;text-align:center;padding:10px;min-width:180px">
-              <div style="font-weight:800;font-size:15px;color:${district.color};margin-bottom:6px">${district.name}</div>
-              <div style="font-size:22px;font-weight:900;color:#111827">${district.count}</div>
-              <div style="font-size:12px;color:#6b7280">عدد البلاغات</div>
-            </div>
-          `
-        });
+});
 
-        polygon.addListener("click", ()=> info.open({map, position:{lat:district.centerLat, lng:district.centerLng}}));
-        label.addListener("click", ()=> info.open({map, position:{lat:district.centerLat, lng:district.centerLng}}));
-      });
-    }
+}
 
-    function buildSmartBoundary(points, centerLat, centerLng){
-      if(points.length === 1){
-        return createCirclePolygon(centerLat, centerLng, 800, 24);
-      }
+// ===== الرسم البياني =====
+function drawChart(){
 
-      if(points.length === 2){
-        const p1 = points[0];
-        const p2 = points[1];
-        const midLat = (p1.lat + p2.lat)/2;
-        const midLng = (p1.lng + p2.lng)/2;
-        return createCirclePolygon(midLat, midLng, 900, 24);
-      }
+const ctx=document.getElementById("chart");
 
-      const hull = convexHull(points.map(p=>({lat:p.lat,lng:p.lng})));
+if(chart) chart.destroy();
 
-      if(hull.length < 3){
-        return createCirclePolygon(centerLat, centerLng, 1000, 24);
-      }
+chart=new Chart(ctx,{
+type:"bar",
+data:{
+labels:clusters.map(c=>c.name),
+datasets:[{
+data:clusters.map(c=>c.count),
+backgroundColor:"blue"
+}]
+}
+});
+}
 
-      // توسيع الحدود قليلاً عشان تظهر بشكل أوضح
-      return hull.map(p=>{
-        const latDiff = p.lat - centerLat;
-        const lngDiff = p.lng - centerLng;
-        return {
-          lat: centerLat + latDiff * 1.18,
-          lng: centerLng + lngDiff * 1.18
-        };
-      });
-    }
+// ===== تنظيف =====
+function clearMap(){
+layers.forEach(l=>map.removeLayer(l));
+layers=[];
+}
+</script>
 
-    function createCirclePolygon(lat, lng, radiusMeters, steps=24){
-      const pts = [];
-      const earth = 111320;
-
-      for(let i=0;i<steps;i++){
-        const angle = (i / steps) * Math.PI * 2;
-        const dLat = (radiusMeters / earth) * Math.cos(angle);
-        const dLng = (radiusMeters / (earth * Math.cos(lat * Math.PI/180))) * Math.sin(angle);
-        pts.push({
-          lat: lat + dLat,
-          lng: lng + dLng
-        });
-      }
-
-      return pts;
-    }
-
-    function convexHull(points){
-      if(points.length <= 3) return points;
-
-      const pts = [...points].sort((a,b)=> a.lng === b.lng ? a.lat - b.lat : a.lng - b.lng);
-
-      const cross = (o,a,b) => (a.lng-o.lng)*(b.lat-o.lat) - (a.lat-o.lat)*(b.lng-o.lng);
-
-      const lower = [];
-      for(const p of pts){
-        while(lower.length >= 2 && cross(lower[lower.length-2], lower[lower.length-1], p) <= 0){
-          lower.pop();
-        }
-        lower.push(p);
-      }
-
-      const upper = [];
-      for(let i=pts.length-1;i>=0;i--){
-        const p = pts[i];
-        while(upper.length >= 2 && cross(upper[upper.length-2], upper[upper.length-1], p) <= 0){
-          upper.pop();
-        }
-        upper.push(p);
-      }
-
-      upper.pop();
-      lower.pop();
-      return lower.concat(upper);
-    }
-
-    function buildLegend(){
-      const box = document.getElementById("legendBox");
-      if(!visibleDistricts.length){
-        box.innerHTML = "";
-        return;
-      }
-
-      box.innerHTML = visibleDistricts.map(d=>`
-        <div class="legendItem">
-          <span class="legendColor" style="background:${d.color}"></span>
-          <span>${d.name} - ${d.count}</span>
-        </div>
-      `).join("");
-    }
-
-    function drawChart(){
-      const ctx = document.getElementById("districtChart").getContext("2d");
-
-      if(chart) chart.destroy();
-
-      chart = new Chart(ctx,{
-        type:"bar",
-        data:{
-          labels: visibleDistricts.map(d=>d.name),
-          datasets:[{
-            data: visibleDistricts.map(d=>d.count),
-            backgroundColor: visibleDistricts.map(d=>d.color),
-            borderRadius: 6
-          }]
-        },
-        options:{
-          responsive:true,
-          maintainAspectRatio:false,
-          plugins:{
-            legend:{display:false}
-          },
-          scales:{
-            y:{beginAtZero:true}
-          }
-        }
-      });
-    }
-  </script>
-
-  <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCKAdhnhp11pzOQXn8rQxcA-dB5HpSZx0Y&callback=initMap&language=ar&region=SA" async defer></script>
 </body>
 </html>
