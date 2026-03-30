@@ -3,13 +3,14 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>بدون API - تجميع ذكي</title>
+<title>تحليل الأحياء الاحترافي</title>
 
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
 <style>
-body{margin:0;font-family:tahoma}
-#map{height:100vh;width:100%}
+body{margin:0;font-family:tahoma;background:#f5f7fb}
+#map{height:70vh;width:100%}
 
 .top{
 position:absolute;
@@ -20,7 +21,15 @@ background:#fff;
 padding:10px;
 border-radius:10px;
 box-shadow:0 4px 10px rgba(0,0,0,.2);
-z-index:10
+z-index:10;
+display:flex;
+gap:10px
+}
+
+.chartBox{
+height:30vh;
+background:#fff;
+padding:10px
 }
 </style>
 </head>
@@ -28,151 +37,210 @@ z-index:10
 <body>
 
 <div class="top">
-<input type="file" id="file" accept=".xlsx,.xls" onchange="loadExcel()">
+<input type="file" accept=".xlsx,.xls" onchange="loadExcel()">
+
+<select onchange="applyFilter(this.value)">
+<option value="all">الكل</option>
+<option value="5">أعلى 5</option>
+<option value="10">أعلى 10</option>
+</select>
 </div>
 
 <div id="map"></div>
 
+<div class="chartBox">
+<canvas id="chart"></canvas>
+</div>
+
 <script>
 let map;
-let markers=[];
 let clusters=[];
+let allClusters=[];
+let polygons=[];
+let markers=[];
+let chart;
+
+const colors=[
+"#ef4444","#22c55e","#3b82f6","#f59e0b","#8b5cf6",
+"#ec4899","#14b8a6","#eab308","#6366f1","#10b981"
+];
 
 // ===== الخريطة =====
 function initMap(){
-    map=new google.maps.Map(document.getElementById("map"),{
-        center:{lat:21.4,lng:40.4},
-        zoom:10,
-        mapTypeId:"hybrid"
-    });
+map=new google.maps.Map(document.getElementById("map"),{
+center:{lat:21.4,lng:40.4},
+zoom:10,
+mapTypeId:"hybrid"
+});
 }
 
-// ===== قراءة Excel =====
+// ===== رفع Excel =====
 function loadExcel(){
 
-    const file=document.getElementById("file").files[0];
-    if(!file){alert("اختر ملف");return;}
+const file=event.target.files[0];
+if(!file){alert("اختر ملف");return;}
 
-    const reader=new FileReader();
+const reader=new FileReader();
 
-    reader.onload=e=>{
-        const data=new Uint8Array(e.target.result);
-        const workbook=XLSX.read(data,{type:"array"});
-        const sheet=workbook.Sheets[workbook.SheetNames[0]];
-        const rows=XLSX.utils.sheet_to_json(sheet,{header:1});
+reader.onload=e=>{
+const data=new Uint8Array(e.target.result);
+const wb=XLSX.read(data,{type:"array"});
+const sheet=wb.Sheets[wb.SheetNames[0]];
+const rows=XLSX.utils.sheet_to_json(sheet,{header:1});
 
-        process(rows);
-    };
+process(rows);
+};
 
-    reader.readAsArrayBuffer(file);
+reader.readAsArrayBuffer(file);
 }
 
 // ===== المعالجة =====
 function process(rows){
 
-    clearMap();
-    clusters=[];
+clearAll();
+clusters=[];
 
-    for(let i=1;i<rows.length;i++){
+for(let i=1;i<rows.length;i++){
 
-        const row=rows[i];
-        if(!row) continue;
+const row=rows[i];
+if(!row) continue;
 
-        const lng=parseFloat(row[0]);
-        const lat=parseFloat(row[1]);
-        const district=row[2] || "";
+const lng=parseFloat(row[0]);
+const lat=parseFloat(row[1]);
+const name=row[2]||"";
 
-        if(isNaN(lat)||isNaN(lng)) continue;
+if(isNaN(lat)||isNaN(lng)) continue;
 
-        addToCluster(lat,lng,district);
-    }
-
-    drawClusters();
-
-    alert("تم التجميع بدون API ✅🔥");
+addCluster(lat,lng,name);
 }
 
-// ===== التجميع 100 متر =====
-function addToCluster(lat,lng,district){
-
-    for(let c of clusters){
-        const d = distance(lat,lng,c.lat,c.lng);
-
-        if(d <= 0.1){ // 100 متر
-            c.points.push({lat,lng});
-            c.count++;
-
-            if(!c.name && district){
-                c.name = district;
-            }
-
-            return;
-        }
-    }
-
-    clusters.push({
-        lat,
-        lng,
-        points:[{lat,lng}],
-        count:1,
-        name:district || "مجموعة"
-    });
+allClusters=[...clusters];
+applyFilter("all");
 }
 
-// ===== رسم =====
-function drawClusters(){
+// ===== التجميع =====
+function addCluster(lat,lng,name){
 
-    clusters.forEach(c=>{
+for(let c of clusters){
+const d=distance(lat,lng,c.lat,c.lng);
 
-        const marker=new google.maps.Marker({
-            position:{lat:c.lat,lng:c.lng},
-            map:map,
-            label:{
-                text:String(c.count),
-                color:"#fff",
-                fontSize:"14px"
-            }
-        });
-
-        markers.push(marker);
-
-        // دائرة تمثل الحي
-        new google.maps.Circle({
-            strokeColor:"#2563eb",
-            strokeOpacity:0.8,
-            strokeWeight:2,
-            fillColor:"#3b82f6",
-            fillOpacity:0.2,
-            map:map,
-            center:{lat:c.lat,lng:c.lng},
-            radius:100
-        });
-
-    });
+if(d<=0.1){
+c.points.push({lat,lng});
+c.count++;
+if(!c.name && name) c.name=name;
+return;
+}
 }
 
-// ===== مسافة =====
+clusters.push({
+lat,lng,
+points:[{lat,lng}],
+count:1,
+name:name||"حي"
+});
+}
+
+// ===== الفلترة =====
+function applyFilter(val){
+
+clearAll();
+
+let sorted=[...allClusters].sort((a,b)=>b.count-a.count);
+
+if(val==="5"){
+clusters=sorted.slice(0,5);
+}else if(val==="10"){
+clusters=sorted.slice(0,10);
+}else{
+clusters=sorted;
+}
+
+drawAll();
+drawChart();
+}
+
+// ===== الرسم =====
+function drawAll(){
+
+clusters.forEach((c,i)=>{
+
+const color=colors[i%colors.length];
+
+// ماركر
+const marker=new google.maps.Marker({
+position:{lat:c.lat,lng:c.lng},
+map:map,
+label:{
+text:String(c.count),
+color:"#fff"
+}
+});
+markers.push(marker);
+
+// مضلع
+const path=c.points.map(p=>({lat:p.lat,lng:p.lng}));
+
+const polygon=new google.maps.Polygon({
+paths:path,
+strokeColor:color,
+strokeOpacity:1,
+strokeWeight:2,
+fillColor:color,
+fillOpacity:0.3,
+map:map
+});
+
+polygons.push(polygon);
+
+});
+}
+
+// ===== الرسم البياني =====
+function drawChart(){
+
+const ctx=document.getElementById("chart");
+
+if(chart) chart.destroy();
+
+chart=new Chart(ctx,{
+type:"bar",
+data:{
+labels:clusters.map(c=>c.name),
+datasets:[{
+data:clusters.map(c=>c.count),
+backgroundColor:colors
+}]
+},
+options:{
+responsive:true,
+plugins:{legend:{display:false}}
+}
+});
+}
+
+// ===== المسافة =====
 function distance(lat1, lon1, lat2, lon2){
-    const R = 6371;
-    const dLat = (lat2-lat1)*Math.PI/180;
-    const dLon = (lon2-lon1)*Math.PI/180;
+const R=6371;
+const dLat=(lat2-lat1)*Math.PI/180;
+const dLon=(lon2-lon1)*Math.PI/180;
 
-    const a =
-        Math.sin(dLat/2)*Math.sin(dLat/2)+
-        Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*
-        Math.sin(dLon/2)*Math.sin(dLon/2);
+const a=
+Math.sin(dLat/2)**2+
+Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*
+Math.sin(dLon/2)**2;
 
-    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
 }
 
 // ===== تنظيف =====
-function clearMap(){
-    markers.forEach(m=>m.setMap(null));
-    markers=[];
+function clearAll(){
+markers.forEach(m=>m.setMap(null));
+polygons.forEach(p=>p.setMap(null));
+markers=[];
+polygons=[];
 }
 </script>
 
-<!-- الخريطة فقط (بدون تكلفة) -->
 <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCKAdhnhp11pzOQXn8rQxcA-dB5HpSZx0Y&callback=initMap&language=ar&region=SA" async defer></script>
 
 </body>
