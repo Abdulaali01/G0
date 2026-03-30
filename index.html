@@ -3,16 +3,14 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>تحليل الأحياء - بدون تكلفة</title>
 
-<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
-<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+<title>تحليل الأحياء الاحترافي</title>
+
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
 
 <style>
 body{margin:0;font-family:tahoma;background:#f5f7fb}
-#map{height:70vh;width:100%}
 
 .top{
 position:absolute;
@@ -23,16 +21,22 @@ background:#fff;
 padding:10px;
 border-radius:10px;
 box-shadow:0 4px 10px rgba(0,0,0,.2);
-z-index:1000;
+z-index:10;
 display:flex;
 gap:10px;
 flex-wrap:wrap
 }
 
-.chartBox{
-height:30vh;
-background:#fff;
-padding:10px
+#map{height:70vh;width:100%}
+.chartBox{height:30vh;background:#fff;padding:10px}
+
+button{
+padding:6px 12px;
+border:none;
+background:#0ea5e9;
+color:#fff;
+border-radius:6px;
+cursor:pointer
 }
 </style>
 </head>
@@ -40,7 +44,8 @@ padding:10px
 <body>
 
 <div class="top">
-<input type="file" accept=".xlsx,.xls" onchange="loadExcel()">
+<input type="file" id="file">
+<button onclick="loadExcel()">رفع</button>
 
 <select onchange="applyFilter(this.value)">
 <option value="all">الكل</option>
@@ -50,37 +55,40 @@ padding:10px
 </div>
 
 <div id="map"></div>
-
 <div class="chartBox">
 <canvas id="chart"></canvas>
 </div>
 
 <script>
+
 let map;
+let markers=[];
+let polygons=[];
 let clusters=[];
 let allClusters=[];
-let layers=[];
-let chart;
+let chart=null;
 
 // ===== الخريطة =====
-map = L.map('map').setView([21.4,40.4],10);
-
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
-maxZoom:19
-}).addTo(map);
+function initMap(){
+map=new google.maps.Map(document.getElementById("map"),{
+center:{lat:21.4,lng:40.4},
+zoom:10,
+mapTypeId:"hybrid"
+});
+}
 
 // ===== رفع Excel =====
 function loadExcel(){
 
-const file=event.target.files[0];
+const file=document.getElementById("file").files[0];
 if(!file){alert("اختر ملف");return;}
 
 const reader=new FileReader();
 
 reader.onload=e=>{
 const data=new Uint8Array(e.target.result);
-const wb=XLSX.read(data,{type:"array"});
-const sheet=wb.Sheets[wb.SheetNames[0]];
+const workbook=XLSX.read(data,{type:"array"});
+const sheet=workbook.Sheets[workbook.SheetNames[0]];
 const rows=XLSX.utils.sheet_to_json(sheet,{header:1});
 
 process(rows);
@@ -89,75 +97,117 @@ process(rows);
 reader.readAsArrayBuffer(file);
 }
 
-// ===== المسافة =====
-function getDistance(a,b){
-const R=6371;
-const dLat=(b.lat-a.lat)*Math.PI/180;
-const dLng=(b.lng-a.lng)*Math.PI/180;
-
-const x=Math.sin(dLat/2)**2+
-Math.cos(a.lat*Math.PI/180)*Math.cos(b.lat*Math.PI/180)*
-Math.sin(dLng/2)**2;
-
-return 2*R*Math.atan2(Math.sqrt(x),Math.sqrt(1-x));
-}
-
-// ===== المعالجة =====
+// ===== معالجة البيانات =====
 function process(rows){
 
 clearMap();
-let temp=[];
+
+let mapData={};
 
 for(let i=1;i<rows.length;i++){
 
 const row=rows[i];
 if(!row) continue;
 
-const lng=parseFloat(row[0]);
 const lat=parseFloat(row[1]);
-const name=row[2]||"غير معروف";
+const lng=parseFloat(row[0]);
+const name=(row[2]||"غير معروف").trim();
 
 if(isNaN(lat)||isNaN(lng)) continue;
 
-temp.push({lat,lng,name});
+if(!mapData[name]){
+mapData[name]={name:name,points:[],count:0};
 }
 
-// تجميع 100 متر
-let grouped=[];
-
-temp.forEach(p=>{
-
-let found=false;
-
-for(let g of grouped){
-if(getDistance(p,g)*1000<=100){
-g.count++;
-found=true;
-break;
-}
+mapData[name].points.push({lat,lng});
+mapData[name].count++;
 }
 
-if(!found){
-grouped.push({
-lat:p.lat,
-lng:p.lng,
-name:p.name,
-count:1
-});
+allClusters=Object.values(mapData);
+clusters=[...allClusters];
+
+drawAll();
+drawChart();
 }
 
-});
-
-clusters=grouped;
-allClusters=[...clusters];
-
-applyFilter("all");
-}
-
-// ===== الفلترة =====
-function applyFilter(val){
+// ===== رسم =====
+function drawAll(){
 
 clearMap();
+
+clusters.forEach(c=>{
+
+const color = c.count>10 ? "#dc2626" : c.count>5 ? "#f59e0b" : "#16a34a";
+
+// 🔥 حدود الحي
+const hull = convexHull(c.points);
+
+const polygon = new google.maps.Polygon({
+paths:hull,
+strokeColor:color,
+strokeWeight:2,
+fillColor:color,
+fillOpacity:0.35,
+map:map
+});
+
+polygons.push(polygon);
+
+// اسم الحي
+const center = hull[0];
+
+const marker=new google.maps.Marker({
+position:center,
+map:map,
+label:{
+text:c.name+" ("+c.count+")",
+color:"#000",
+fontSize:"12px",
+fontWeight:"bold"
+}
+});
+
+markers.push(marker);
+
+});
+
+}
+
+// ===== Convex Hull =====
+function convexHull(points){
+
+points = points.map(p=>[p.lat,p.lng]);
+
+points.sort((a,b)=> a[0]===b[0]?a[1]-b[1]:a[0]-b[0]);
+
+const cross=(o,a,b)=>
+(a[0]-o[0])*(b[1]-o[1])-(a[1]-o[1])*(b[0]-o[0]);
+
+let lower=[];
+for(let p of points){
+while(lower.length>=2 && cross(lower[lower.length-2],lower[lower.length-1],p)<=0){
+lower.pop();
+}
+lower.push(p);
+}
+
+let upper=[];
+for(let i=points.length-1;i>=0;i--){
+let p=points[i];
+while(upper.length>=2 && cross(upper[upper.length-2],upper[upper.length-1],p)<=0){
+upper.pop();
+}
+upper.push(p);
+}
+
+upper.pop();
+lower.pop();
+
+return lower.concat(upper).map(p=>({lat:p[0],lng:p[1]}));
+}
+
+// ===== فلترة =====
+function applyFilter(val){
 
 let sorted=[...allClusters].sort((a,b)=>b.count-a.count);
 
@@ -173,28 +223,6 @@ drawAll();
 drawChart();
 }
 
-// ===== رسم =====
-function drawAll(){
-
-clusters.forEach(c=>{
-
-const color = c.count>10 ? "red" : c.count>5 ? "orange" : "green";
-
-const circle=L.circle([c.lat,c.lng],{
-radius:800,
-color:color,
-fillColor:color,
-fillOpacity:0.5
-}).addTo(map);
-
-circle.bindPopup(c.name+" ("+c.count+")");
-
-layers.push(circle);
-
-});
-
-}
-
 // ===== الرسم البياني =====
 function drawChart(){
 
@@ -208,18 +236,26 @@ data:{
 labels:clusters.map(c=>c.name),
 datasets:[{
 data:clusters.map(c=>c.count),
-backgroundColor:"blue"
+backgroundColor:"#2563eb"
 }]
+},
+options:{
+responsive:true
 }
 });
 }
 
 // ===== تنظيف =====
 function clearMap(){
-layers.forEach(l=>map.removeLayer(l));
-layers=[];
+markers.forEach(m=>m.setMap(null));
+polygons.forEach(p=>p.setMap(null));
+markers=[];
+polygons=[];
 }
+
 </script>
+
+<script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCKAdhnhp11pzOQXn8rQxcA-dB5HpSZx0Y&callback=initMap" async defer></script>
 
 </body>
 </html>
