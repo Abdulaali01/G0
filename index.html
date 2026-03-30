@@ -3,19 +3,20 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>تحليل الأحياء - النسخة الاحترافية</title>
+<title>تحليل الأحياء - النسخة المحدثة</title>
 
 <!-- Chart.js -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<!-- Chart.js DataLabels Plugin -->
 <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
 <!-- SheetJS -->
 <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
 <!-- Leaflet -->
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<!-- html2canvas for export -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<!-- Leaflet Simple Map Screenshoter -->
+<script src="https://unpkg.com/leaflet-simple-map-screenshoter@0.5.0/dist/leaflet-simple-map-screenshoter.js"></script>
+<!-- FileSaver -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
 
 <style>
 * {
@@ -28,21 +29,22 @@ body {
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     min-height: 100vh;
+    padding-bottom: 20px;
 }
 
-/* شريط التحكم العلوي */
+/* شريط التحكم العلوي - ثابت */
 .top-bar {
     position: fixed;
     top: 0;
     left: 0;
     right: 0;
-    background: rgba(255, 255, 255, 0.95);
+    background: rgba(255, 255, 255, 0.98);
     backdrop-filter: blur(10px);
     padding: 12px 20px;
     box-shadow: 0 4px 20px rgba(0,0,0,0.15);
-    z-index: 10000;
+    z-index: 100000;
     display: flex;
-    gap: 10px;
+    gap: 8px;
     flex-wrap: wrap;
     align-items: center;
     border-bottom: 3px solid #667eea;
@@ -54,15 +56,8 @@ body {
     padding: 8px 14px;
     border-radius: 10px;
     border: 2px solid #e0e0e0;
-    font-size: 14px;
+    font-size: 13px;
     transition: all 0.3s ease;
-}
-
-.top-bar input:focus,
-.top-bar select:focus {
-    outline: none;
-    border-color: #667eea;
-    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
 }
 
 .top-bar button {
@@ -71,81 +66,75 @@ body {
     border: none;
     cursor: pointer;
     font-weight: 600;
-    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
 }
 
 .top-bar button:hover {
     transform: translateY(-2px);
-    box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
+    box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
 }
 
 /* زر التصدير الخاص */
 .btn-export {
     background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%) !important;
-    box-shadow: 0 4px 15px rgba(245, 87, 108, 0.4) !important;
-}
-
-.btn-export:hover {
-    box-shadow: 0 6px 20px rgba(245, 87, 108, 0.6) !important;
-}
-
-/* زر الزوم */
-.btn-zoom {
-    background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%) !important;
-    box-shadow: 0 4px 15px rgba(79, 172, 254, 0.4) !important;
 }
 
 /* الحاوية الرئيسية */
 .main-container {
-    margin-top: 70px;
+    margin-top: 80px;
     padding: 20px;
-    display: grid;
-    grid-template-rows: 60vh auto;
+    display: flex;
+    flex-direction: column;
     gap: 20px;
-    max-width: 100%;
 }
 
-/* الخريطة */
-.map-section {
+/* الخريطة - حاوية منفصلة */
+.map-wrapper {
     background: white;
     border-radius: 20px;
     overflow: hidden;
     box-shadow: 0 10px 40px rgba(0,0,0,0.2);
     position: relative;
+    height: 65vh;
+    min-height: 500px;
 }
 
 #map {
     height: 100%;
     width: 100%;
+    position: relative;
+    z-index: 1;
 }
 
-/* شريط الزوم المخصص */
+/* شريط الزوم المخصص - مثبت داخل الخريطة */
 .custom-zoom {
     position: absolute;
-    bottom: 20px;
-    right: 20px;
+    bottom: 30px;
+    right: 30px;
     background: white;
     border-radius: 12px;
-    box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+    box-shadow: 0 4px 20px rgba(0,0,0,0.3);
     display: flex;
     flex-direction: column;
     overflow: hidden;
     z-index: 1000;
+    border: 2px solid #667eea;
 }
 
 .zoom-btn {
-    width: 44px;
-    height: 44px;
+    width: 48px;
+    height: 48px;
     border: none;
     background: white;
     font-size: 24px;
     cursor: pointer;
     transition: all 0.3s;
     color: #667eea;
+    font-weight: bold;
 }
 
 .zoom-btn:hover {
-    background: #f0f0f0;
+    background: #667eea;
+    color: white;
 }
 
 .zoom-btn:first-child {
@@ -164,11 +153,6 @@ body {
     border-radius: 20px;
     padding: 20px;
     box-shadow: 0 10px 40px rgba(0,0,0,0.15);
-    transition: transform 0.3s ease;
-}
-
-.card:hover {
-    transform: translateY(-5px);
 }
 
 .card-title {
@@ -177,7 +161,10 @@ body {
     color: #333;
     margin-bottom: 15px;
     padding-bottom: 10px;
-    border-bottom: 2px solid #667eea;
+    border-bottom: 3px solid #667eea;
+    display: flex;
+    align-items: center;
+    gap: 8px;
 }
 
 .stat-item {
@@ -226,7 +213,7 @@ body {
     width: 100%;
 }
 
-/* ملصقات الخريطة المحسنة */
+/* ملصقات الخريطة */
 .map-label {
     background: rgba(255, 255, 255, 0.95);
     padding: 6px 12px;
@@ -239,50 +226,41 @@ body {
     transition: all 0.3s ease;
 }
 
-/* تأثيرات للمضلعات */
-.polygon-hover {
-    filter: brightness(1.1);
-    transform: scale(1.02);
+/* للتصدير - نخفي العناصر */
+.print-mode .top-bar,
+.print-mode .custom-zoom,
+.print-mode .leaflet-control-container {
+    display: none !important;
 }
 
-/* للطباعة والتصدير */
-.export-container {
-    background: white;
-    padding: 30px;
-    border-radius: 20px;
+/* زر تصدير الخريطة المنفصل */
+.map-export-btn {
+    position: absolute;
+    top: 20px;
+    left: 20px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 10px;
+    cursor: pointer;
+    font-weight: 600;
+    z-index: 1000;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.3);
 }
 
+.map-export-btn:hover {
+    transform: scale(1.05);
+}
+
+/* تنسيق للطباعة */
 @media print {
-    .top-bar {
-        display: none;
+    .top-bar, .custom-zoom {
+        display: none !important;
     }
     .main-container {
         margin-top: 0;
     }
-}
-
-/* تأثيرات حركية */
-@keyframes slideIn {
-    from {
-        opacity: 0;
-        transform: translateY(20px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
-}
-
-.card {
-    animation: slideIn 0.5s ease forwards;
-}
-
-.card:nth-child(2) {
-    animation-delay: 0.1s;
-}
-
-.card:nth-child(3) {
-    animation-delay: 0.2s;
 }
 </style>
 </head>
@@ -310,19 +288,21 @@ body {
     
     <input id="searchBox" placeholder="🔍 بحث عن حي..." oninput="applyCurrentFilter()">
     
-    <button class="btn-zoom" onclick="zoomToFiltered()">🔍 قرّب على المفلتر</button>
     <button onclick="fitAll()">🌍 إظهار الكل</button>
-    <button class="btn-export" onclick="exportHighResImage()">📸 تصدير صورة عالية الدقة</button>
+    <button class="btn-export" onclick="exportFullReport()">📸 تصدير التقرير كامل</button>
     <button onclick="exportExcel()">📊 تصدير Excel</button>
     <button onclick="clearAllData()" style="background: #ff4757 !important;">🗑️ مسح</button>
 </div>
 
 <!-- الحاوية الرئيسية -->
-<div class="main-container" id="captureArea">
+<div class="main-container" id="reportArea">
     
     <!-- الخريطة -->
-    <div class="map-section">
+    <div class="map-wrapper" id="mapContainer">
         <div id="map"></div>
+        
+        <!-- زر تصدير الخريطة -->
+        <button class="map-export-btn" onclick="exportMapOnly()" title="تصدير صورة الخريطة فقط">📷 تصدير الخريطة</button>
         
         <!-- شريط الزوم المخصص -->
         <div class="custom-zoom">
@@ -332,7 +312,7 @@ body {
     </div>
     
     <!-- الإحصائيات والرسوم -->
-    <div class="stats-section">
+    <div class="stats-section" id="statsArea">
         
         <!-- بطاقة الإحصائيات -->
         <div class="card">
@@ -384,6 +364,7 @@ body {
 Chart.register(ChartDataLabels);
 
 let map;
+let screenshoter;
 let polygons = [], labels = [];
 let rawDistricts = [], visibleDistricts = [];
 let chart = null, chart2 = null;
@@ -401,35 +382,25 @@ const colors = [
 // تهيئة الخريطة
 function initMap() {
     map = L.map('map', {
-        zoomControl: false, // إخفاء زر الزوم الافتراضي
-        attributionControl: false
+        zoomControl: false,
+        attributionControl: false,
+        preferCanvas: true // مهم للتصدير
     }).setView([21.4, 40.4], 10);
 
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        maxZoom: 19
+        maxZoom: 19,
+        crossOrigin: true // مهم للتصدير
     }).addTo(map);
 
-    map.on('zoomend', () => {
-        updateLabelsVisibility();
-    });
-}
-
-// تحديث ظهور الملصقات حسب مستوى الزوم
-function updateLabelsVisibility() {
-    const zoom = map.getZoom();
-    
-    labels.forEach(label => {
-        const element = label.getElement();
-        if (element) {
-            if (zoom >= 11) {
-                element.style.opacity = '1';
-                element.style.transform = 'scale(1)';
-            } else {
-                element.style.opacity = '0.7';
-                element.style.transform = 'scale(0.8)';
-            }
+    // إضافة أداة التصوير
+    screenshoter = L.simpleMapScreenshoter({
+        screenName: 'خريطة_الأحياء',
+        hidden: true, // نخفي الزر الافتراضي ونستخدم زرنا الخاص
+        hideElementsWithSelectors: ['.custom-zoom', '.map-export-btn'],
+        caption: function() {
+            return 'تحليل الأحياء - ' + new Date().toLocaleDateString('ar-SA');
         }
-    });
+    }).addTo(map);
 }
 
 // تحميل Excel
@@ -504,8 +475,6 @@ function processRows(rows) {
     document.getElementById("topDistrict").textContent = rawDistricts[0]?.name || "-";
 
     applyCurrentFilter();
-    
-    // إظهار رسالة نجاح
     showNotification(`✅ تم تحميل ${total} تقرير من ${rawDistricts.length} حي`);
 }
 
@@ -554,7 +523,6 @@ function draw() {
     visibleDistricts.forEach((d, index) => {
         let hull = convexHull(d.points);
         
-        // حساب عامل التكبير حسب مستوى الزوم
         let factor = zoom < 10 ? 0.5 : zoom < 13 ? 0.2 : 0.05;
         
         hull = hull.map(p => ({
@@ -571,7 +539,6 @@ function draw() {
             dashArray: zoom > 12 ? null : '5, 5'
         }).addTo(map);
 
-        // تأثير hover
         poly.on('mouseover', function() {
             this.setStyle({ fillOpacity: 0.6, weight: 5 });
         });
@@ -581,7 +548,7 @@ function draw() {
 
         polygons.push(poly);
 
-        // إضافة ملصق دائماً لكن بحجم متغير
+        // إضافة ملصق
         let labelSize = zoom >= 14 ? '14px' : zoom >= 11 ? '12px' : '10px';
         let labelPadding = zoom >= 14 ? '8px 16px' : '6px 12px';
         
@@ -598,7 +565,6 @@ function draw() {
                     font-weight: 700;
                     box-shadow: 0 4px 15px rgba(0,0,0,0.2);
                     white-space: nowrap;
-                    transition: all 0.3s;
                 ">${d.name} <span style="background:${d.color};color:white;padding:2px 8px;border-radius:10px;margin-right:5px;">${d.count}</span></div>`,
                 iconSize: null
             })
@@ -637,7 +603,7 @@ function convexHull(points) {
     return lower.concat(upper).map(p => ({ lat: p[0], lng: p[1] }));
 }
 
-// رسم الرسم البياني الأول - الأحياء
+// رسم الرسم البياني الأول
 function drawChart() {
     if (chart) chart.destroy();
 
@@ -666,39 +632,23 @@ function drawChart() {
                     color: '#333',
                     font: { weight: 'bold', size: 12 },
                     formatter: (value) => value
-                },
-                tooltip: {
-                    backgroundColor: 'rgba(0,0,0,0.8)',
-                    padding: 12,
-                    cornerRadius: 8,
-                    titleFont: { size: 14 },
-                    bodyFont: { size: 13 }
                 }
             },
             scales: {
                 y: {
                     beginAtZero: true,
-                    grid: { color: 'rgba(0,0,0,0.05)' },
-                    ticks: { font: { size: 11 } }
+                    grid: { color: 'rgba(0,0,0,0.05)' }
                 },
                 x: {
                     grid: { display: false },
-                    ticks: { 
-                        font: { size: 11 },
-                        maxRotation: 45,
-                        minRotation: 45
-                    }
+                    ticks: { maxRotation: 45, minRotation: 45 }
                 }
-            },
-            animation: {
-                duration: 1000,
-                easing: 'easeOutQuart'
             }
         }
     });
 }
 
-// رسم الرسم البياني الثاني - التصنيفات
+// رسم الرسم البياني الثاني
 function drawCategoryChart() {
     if (chart2) chart2.destroy();
 
@@ -725,25 +675,16 @@ function drawCategoryChart() {
             plugins: {
                 legend: {
                     position: 'right',
-                    labels: {
-                        usePointStyle: true,
-                        padding: 15,
-                        font: { size: 12 }
-                    }
+                    labels: { usePointStyle: true, padding: 15 }
                 },
                 datalabels: {
                     color: '#fff',
                     font: { weight: 'bold', size: 12 },
                     formatter: (value, ctx) => {
                         let sum = ctx.dataset.data.reduce((a, b) => a + b, 0);
-                        let percentage = (value * 100 / sum).toFixed(1) + "%";
-                        return percentage;
+                        return (value * 100 / sum).toFixed(1) + "%";
                     }
                 }
-            },
-            animation: {
-                animateRotate: true,
-                duration: 1000
             }
         }
     });
@@ -760,13 +701,11 @@ function buildLegend() {
     `).join("");
 }
 
-// إبراز حي معين
+// إبراز حي
 function highlightDistrict(name) {
     const district = visibleDistricts.find(d => d.name === name);
     if (district) {
-        map.flyTo([district.centerLat, district.centerLng], 15, {
-            duration: 1.5
-        });
+        map.flyTo([district.centerLat, district.centerLng], 15, { duration: 1.5 });
     }
 }
 
@@ -784,70 +723,54 @@ function exportExcel() {
         alert('لا توجد بيانات للتصدير');
         return;
     }
-    
     let ws = XLSX.utils.aoa_to_sheet(exportRows);
     let wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "الأحياء");
     XLSX.writeFile(wb, "تحليل_الأحياء.xlsx");
 }
 
-// تصدير صورة عالية الدقة
-async function exportHighResImage() {
-    const element = document.getElementById('captureArea');
+// تصدير الخريطة فقط (يحافظ على المضلعات!)
+function exportMapOnly() {
+    showNotification('⏳ جاري تصدير الخريطة...');
     
-    // إظهار مؤشر التحميل
-    showNotification('⏳ جاري إنشاء الصورة عالية الدقة...');
-    
-    try {
-        const canvas = await html2canvas(element, {
-            scale: 2, // دقة عالية ×2
-            useCORS: true,
-            allowTaint: true,
-            backgroundColor: '#667eea',
-            logging: false,
-            onclone: (clonedDoc) => {
-                // تعديلات على النسخة المستنسخة قبل التقاطها
-                const clonedMap = clonedDoc.getElementById('map');
-                if (clonedMap) {
-                    clonedMap.style.height = '60vh';
-                }
-            }
-        });
-        
-        // تحويل إلى صورة
-        const image = canvas.toDataURL("image/png", 1.0);
-        
-        // تحميل الصورة
-        const link = document.createElement('a');
-        link.download = `تحليل_الأحياء_${new Date().toLocaleDateString('ar-SA')}.png`;
-        link.href = image;
-        link.click();
-        
-        showNotification('✅ تم تحميل الصورة بنجاح!');
-    } catch (err) {
-        console.error(err);
-        alert('حدث خطأ أثناء تصدير الصورة');
-    }
+    screenshoter.takeScreen('blob').then(blob => {
+        saveAs(blob, `خريطة_الأحياء_${new Date().toLocaleDateString('ar-SA')}.png`);
+        showNotification('✅ تم تصدير الخريطة بنجاح!');
+    }).catch(e => {
+        console.error(e);
+        alert('حدث خطأ في تصدير الخريطة');
+    });
 }
 
-// زوم على المناطق المفلترة
-function zoomToFiltered() {
-    if (visibleDistricts.length === 0) {
-        alert('لا توجد أحياء مفلترة للتقريب');
-        return;
-    }
+// تصدير التقرير الكامل (3 صور منفصلة)
+async function exportFullReport() {
+    showNotification('⏳ جاري تصدير التقرير...');
     
-    let bounds = [];
-    visibleDistricts.forEach(d => {
-        d.points.forEach(p => bounds.push([p.lat, p.lng]));
-    });
-    
-    if (bounds.length > 0) {
-        map.flyToBounds(bounds, {
-            padding: [50, 50],
-            maxZoom: 16,
-            duration: 1.5
+    try {
+        // 1. تصدير الخريطة
+        const mapBlob = await screenshoter.takeScreen('blob');
+        saveAs(mapBlob, `1_الخريطة_${new Date().toLocaleDateString('ar-SA')}.png`);
+        
+        // 2. تصدير الرسوم البيانية والإحصائيات
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+        const statsElement = document.getElementById('statsArea');
+        
+        // استخدام dom-to-image للإحصائيات (لأنها HTML عادي)
+        const statsCanvas = await html2canvas(statsElement, {
+            scale: 2,
+            backgroundColor: '#667eea',
+            useCORS: true
         });
+        
+        statsCanvas.toBlob(blob => {
+            saveAs(blob, `2_الإحصائيات_${new Date().toLocaleDateString('ar-SA')}.png`);
+        });
+        
+        showNotification('✅ تم تصدير التقرير (صورتين منفصلتين)!');
+    } catch (err) {
+        console.error(err);
+        alert('حدث خطأ في التصدير');
     }
 }
 
@@ -888,12 +811,12 @@ function showNotification(message) {
         top: 90px;
         left: 50%;
         transform: translateX(-50%);
-        background: rgba(0,0,0,0.8);
+        background: rgba(0,0,0,0.85);
         color: white;
         padding: 15px 30px;
         border-radius: 30px;
         font-weight: 600;
-        z-index: 10001;
+        z-index: 100001;
         animation: slideIn 0.3s ease;
     `;
     notif.textContent = message;
@@ -904,6 +827,11 @@ function showNotification(message) {
         setTimeout(() => notif.remove(), 300);
     }, 3000);
 }
+
+// إضافة html2canvas للإحصائيات
+const html2canvasScript = document.createElement('script');
+html2canvasScript.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
+document.head.appendChild(html2canvasScript);
 
 // تهيئة
 initMap();
