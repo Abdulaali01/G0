@@ -249,6 +249,105 @@ body {
     min-width: 28px;
     text-align: center;
 }
+
+/* ✅ أنماط خاصة للتصدير - حجم سلايد بور بوينت */
+.export-slide-mode {
+    width: 1920px !important;
+    height: 1080px !important;
+    margin: 0 !important;
+    padding: 40px !important;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 20px !important;
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    z-index: 999999 !important;
+    overflow: hidden !important;
+}
+
+.export-slide-mode .map-wrapper {
+    height: 520px !important;
+    border-radius: 16px !important;
+}
+
+.export-slide-mode .stats-section {
+    display: grid !important;
+    grid-template-columns: 280px 1fr 1fr !important;
+    gap: 20px !important;
+    height: 420px !important;
+}
+
+.export-slide-mode .card {
+    border-radius: 16px !important;
+    padding: 20px !important;
+}
+
+.export-slide-mode .card-title {
+    font-size: 22px !important;
+    font-weight: 800 !important;
+    margin-bottom: 15px !important;
+    padding-bottom: 12px !important;
+}
+
+.export-slide-mode .stat-item {
+    padding: 14px !important;
+    font-size: 18px !important;
+    margin-bottom: 12px !important;
+}
+
+.export-slide-mode .stat-value {
+    font-size: 24px !important;
+    font-weight: 800 !important;
+}
+
+.export-slide-mode .legend-item {
+    padding: 12px !important;
+    font-size: 16px !important;
+    margin-bottom: 6px !important;
+}
+
+.export-slide-mode .legend-color-box {
+    width: 28px !important;
+    height: 28px !important;
+    font-size: 14px !important;
+}
+
+.export-slide-mode .legend-count {
+    padding: 4px 12px !important;
+    font-size: 14px !important;
+}
+
+.export-slide-mode .chart-container {
+    height: 320px !important;
+}
+
+.export-slide-mode .bar-chart-container {
+    height: 280px !important;
+}
+
+.export-slide-mode .map-label-container {
+    padding: 10px 18px !important;
+    font-size: 18px !important;
+    border-width: 4px !important;
+}
+
+.export-slide-mode .map-label-count {
+    padding: 4px 12px !important;
+    font-size: 16px !important;
+}
+
+/* ✅ إخفاء العناصر غير المرغوبة أثناء التصدير */
+.export-slide-mode .custom-zoom,
+.export-slide-mode .top-bar {
+    display: none !important;
+}
+
+/* ✅ تحسينات الخطوط للوضوح */
+.export-slide-mode canvas {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif !important;
+}
 </style>
 </head>
 
@@ -275,7 +374,7 @@ body {
     <input id="searchBox" placeholder="🔍 بحث عن حي..." oninput="applyCurrentFilter()">
     
     <button onclick="fitAll()">🌍 إظهار الكل</button>
-    <button class="btn-export" onclick="exportFullPage()">📸 تصدير التقرير</button>
+    <button class="btn-export" onclick="exportSlide()">📸 تصدير للبور بوينت</button>
     <button onclick="exportExcel()">📊 Excel</button>
     <button onclick="clearAllData()" style="background: #ff4757 !important;">🗑️ مسح</button>
 </div>
@@ -431,7 +530,7 @@ function processRows(rows) {
         if (!mergedData[mergeKey]) {
             mergedData[mergeKey] = { 
                 name: d.name, 
-                municipality: d.municipality, 
+                municipality: d.muni, 
                 date: d.date, 
                 points: [], 
                 categories: new Set() 
@@ -496,14 +595,12 @@ function applyCurrentFilter() {
 
     visibleDistricts = arr;
     
-    // ✅ تحديث التصنيفات حسب الفلتر
     updateCategoryData();
     
     draw();
     drawCategoryChart();
 }
 
-// ✅ تحديث بيانات التصنيفات حسب الأحياء المفلترة
 function updateCategoryData() {
     categoryData = {};
     visibleDistricts.forEach(d => {
@@ -605,8 +702,19 @@ function drawChart() {
                 datalabels: { display: false }
             },
             scales: {
-                y: { beginAtZero: true, grid: { color: 'rgba(0,0,0,0.05)' } },
-                x: { grid: { display: false }, ticks: { maxRotation: 45, minRotation: 45, font: { size: 10 } } }
+                y: { 
+                    beginAtZero: true, 
+                    grid: { color: 'rgba(0,0,0,0.05)' },
+                    ticks: { font: { size: 12, weight: 'bold' } }
+                },
+                x: { 
+                    grid: { display: false }, 
+                    ticks: { 
+                        maxRotation: 45, 
+                        minRotation: 45, 
+                        font: { size: 11, weight: 'bold' } 
+                    } 
+                }
             }
         }
     });
@@ -643,13 +751,20 @@ function drawCategoryChart() {
                     anchor: 'end',
                     align: 'right',
                     color: '#333',
-                    font: { weight: 'bold', size: 12 },
+                    font: { weight: 'bold', size: 14 },
                     formatter: (value) => value
                 }
             },
             scales: {
-                x: { beginAtZero: true, grid: { color: 'rgba(0,0,0,0.05)' } },
-                y: { grid: { display: false }, ticks: { font: { size: 11 } } }
+                x: { 
+                    beginAtZero: true, 
+                    grid: { color: 'rgba(0,0,0,0.05)' },
+                    ticks: { font: { size: 12, weight: 'bold' } }
+                },
+                y: { 
+                    grid: { display: false }, 
+                    ticks: { font: { size: 13, weight: 'bold' } } 
+                }
             }
         }
     });
@@ -688,67 +803,94 @@ function exportExcel() {
     XLSX.writeFile(wb, "تحليل_الأحياء.xlsx");
 }
 
-// ✅ تصدير مبسط - يستخدم dom-to-image-more
-async function exportFullPage() {
-    showNotification('⏳ جاري تصدير التقرير...');
+// ✅ تصدير بصيغة سلايد بور بوينت 16:9
+async function exportSlide() {
+    showNotification('⏳ جاري إعداد السلايد...');
+    
+    const captureArea = document.getElementById('captureArea');
+    const originalHTML = captureArea.innerHTML;
+    const originalClass = captureArea.className;
     
     try {
-        // ✅ تحميل المكتبة ديناميكياً
+        // ✅ تحميل مكتبة dom-to-image-more
         await loadScript('https://cdnjs.cloudflare.com/ajax/libs/dom-to-image-more/3.2.0/dom-to-image-more.min.js');
         
-        const node = document.getElementById('captureArea');
+        // ✅ تطبيق نمط السلايد
+        captureArea.classList.add('export-slide-mode');
         
-        // ✅ انتظار الرسوم تكتمل
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        // ✅ إعادة رسم الخرائط والرسوم البيانية بالأحجام الجديدة
+        map.invalidateSize();
         
-        const dataUrl = await domtoimage.toPng(node, {
+        // ✅ إعادة رسم الرسوم البيانية بالخطوط الكبيرة
+        drawChartForExport();
+        drawCategoryChartForExport();
+        
+        // ✅ انتظار اكتمال الرسوم
+        await new Promise(resolve => setTimeout(resolve, 1500));
+        
+        // ✅ التقاط الصورة بدقة عالية
+        const dataUrl = await domtoimage.toPng(captureArea, {
             quality: 1,
             bgcolor: '#667eea',
-            width: node.offsetWidth,
-            height: node.offsetHeight,
+            width: 1920,
+            height: 1080,
             style: {
                 'transform': 'scale(1)',
-                'transform-origin': 'top left'
+                'transform-origin': 'top left',
+                'width': '1920px',
+                'height': '1080px'
             }
         });
         
-        // إضافة عنوان
+        // ✅ إضافة عنوان احترافي
         const canvas = document.createElement('canvas');
         const ctx = canvas.getContext('2d');
         const img = new Image();
         
         img.onload = () => {
-            const titleHeight = 100;
-            canvas.width = img.width;
-            canvas.height = img.height + titleHeight;
+            // ✅ إعداد canvas بحجم Full HD
+            canvas.width = 1920;
+            canvas.height = 1080;
             
-            // خلفية العنوان
-            const gradient = ctx.createLinearGradient(0, 0, 0, titleHeight);
+            // ✅ رسم الخلفية
+            const gradient = ctx.createLinearGradient(0, 0, 0, 120);
             gradient.addColorStop(0, '#667eea');
             gradient.addColorStop(1, '#764ba2');
             ctx.fillStyle = gradient;
-            ctx.fillRect(0, 0, canvas.width, titleHeight);
+            ctx.fillRect(0, 0, 1920, 120);
             
-            // نص العنوان
+            // ✅ عنوان رئيسي كبير وواضح
             ctx.fillStyle = '#ffffff';
-            ctx.font = 'bold 40px "Segoe UI", Tahoma';
+            ctx.font = 'bold 48px "Segoe UI", Tahoma, Arial';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
-            ctx.fillText('📊 تقرير تحليل الأحياء', canvas.width / 2, titleHeight / 2 - 10);
+            ctx.fillText('📊 تقرير تحليل الأحياء', 960, 50);
             
-            ctx.font = '20px "Segoe UI", Tahoma';
+            // ✅ التاريخ
+            ctx.font = 'bold 28px "Segoe UI", Tahoma, Arial';
             ctx.fillText(new Date().toLocaleDateString('ar-SA', { 
                 weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' 
-            }), canvas.width / 2, titleHeight / 2 + 25);
+            }), 960, 90);
             
-            // الصورة
-            ctx.drawImage(img, 0, titleHeight);
+            // ✅ رسم الصورة الرئيسية
+            ctx.drawImage(img, 0, 120, 1920, 960);
             
-            // تحميل
+            // ✅ تحميل الملف
             canvas.toBlob(blob => {
                 saveAs(blob, `تقرير_الأحياء_${new Date().toLocaleDateString('ar-SA')}.png`);
-                showNotification('✅ تم تصدير التقرير!');
-            });
+                showNotification('✅ تم تصدير السلايد بنجاح!');
+                
+                // ✅ استعادة الحالة الأصلية
+                captureArea.className = originalClass;
+                captureArea.innerHTML = originalHTML;
+                
+                // ✅ إعادة تهيئة الخريطة
+                setTimeout(() => {
+                    initMap();
+                    applyCurrentFilter();
+                }, 500);
+                
+            }, 'image/png');
         };
         
         img.src = dataUrl;
@@ -756,10 +898,128 @@ async function exportFullPage() {
     } catch (err) {
         console.error(err);
         alert('حدث خطأ: ' + err.message);
+        
+        // ✅ استعادة الحالة الأصلية في حالة الخطأ
+        captureArea.className = originalClass;
+        captureArea.innerHTML = originalHTML;
+        setTimeout(() => {
+            initMap();
+            applyCurrentFilter();
+        }, 500);
     }
 }
 
-// ✅ تحميل سكربت ديناميكي
+// ✅ رسم الرسم البياني للتصدير مع خطوط كبيرة
+function drawChartForExport() {
+    if (chart) chart.destroy();
+    const ctx = document.getElementById("chart").getContext("2d");
+    
+    chart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: visibleDistricts.map(d => d.name),
+            datasets: [{
+                data: visibleDistricts.map(d => d.count),
+                backgroundColor: visibleDistricts.map(d => d.color),
+                borderRadius: 12,
+                borderSkipped: false,
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            animation: false,
+            plugins: {
+                legend: { display: false },
+                datalabels: {
+                    display: true,
+                    anchor: 'end',
+                    align: 'top',
+                    color: '#333',
+                    font: { weight: 'bold', size: 16 },
+                    formatter: (value) => value
+                }
+            },
+            scales: {
+                y: { 
+                    beginAtZero: true, 
+                    grid: { color: 'rgba(0,0,0,0.1)' },
+                    ticks: { 
+                        font: { size: 16, weight: 'bold', family: 'Segoe UI' },
+                        color: '#333'
+                    }
+                },
+                x: { 
+                    grid: { display: false }, 
+                    ticks: { 
+                        maxRotation: 45, 
+                        minRotation: 45, 
+                        font: { size: 14, weight: 'bold', family: 'Segoe UI' },
+                        color: '#333'
+                    } 
+                }
+            }
+        }
+    });
+}
+
+// ✅ رسم رسم التصنيفات للتصدير مع خطوط كبيرة
+function drawCategoryChartForExport() {
+    if (chart2) chart2.destroy();
+    const ctx = document.getElementById("chart2").getContext("2d");
+    const cats = Object.keys(categoryData);
+    const vals = Object.values(categoryData);
+    
+    const sorted = cats.map((cat, i) => ({ cat, val: vals[i], color: colors[i % colors.length] }))
+                       .sort((a, b) => b.val - a.val);
+    
+    chart2 = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: sorted.map(s => s.cat),
+            datasets: [{
+                data: sorted.map(s => s.val),
+                backgroundColor: sorted.map(s => s.color),
+                borderRadius: 12,
+                borderSkipped: false,
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            animation: false,
+            indexAxis: 'y',
+            plugins: {
+                legend: { display: false },
+                datalabels: {
+                    anchor: 'end',
+                    align: 'right',
+                    color: '#333',
+                    font: { weight: 'bold', size: 18, family: 'Segoe UI' },
+                    formatter: (value) => value
+                }
+            },
+            scales: {
+                x: { 
+                    beginAtZero: true, 
+                    grid: { color: 'rgba(0,0,0,0.1)' },
+                    ticks: { 
+                        font: { size: 16, weight: 'bold', family: 'Segoe UI' },
+                        color: '#333'
+                    }
+                },
+                y: { 
+                    grid: { display: false }, 
+                    ticks: { 
+                        font: { size: 16, weight: 'bold', family: 'Segoe UI' },
+                        color: '#333'
+                    } 
+                }
+            }
+        }
+    });
+}
+
 function loadScript(src) {
     return new Promise((resolve, reject) => {
         const script = document.createElement('script');
