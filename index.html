@@ -12,6 +12,7 @@
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://unpkg.com/leaflet-simple-map-screenshoter@0.5.0/dist/leaflet-simple-map-screenshoter.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -255,11 +256,11 @@ body {
     width: 1920px !important;
     height: 1080px !important;
     margin: 0 !important;
-    padding: 40px !important;
+    padding: 30px !important;
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
     display: flex !important;
     flex-direction: column !important;
-    gap: 20px !important;
+    gap: 15px !important;
     position: fixed !important;
     top: 0 !important;
     left: 0 !important;
@@ -268,74 +269,84 @@ body {
 }
 
 .export-slide-mode .map-wrapper {
-    height: 520px !important;
+    height: 500px !important;
     border-radius: 16px !important;
+    position: relative !important;
+}
+
+.export-slide-mode #map {
+    height: 100% !important;
+    width: 100% !important;
+    position: absolute !important;
+    top: 0 !important;
+    left: 0 !important;
 }
 
 .export-slide-mode .stats-section {
     display: grid !important;
-    grid-template-columns: 280px 1fr 1fr !important;
-    gap: 20px !important;
-    height: 420px !important;
+    grid-template-columns: 260px 1fr 1fr !important;
+    gap: 15px !important;
+    height: 380px !important;
 }
 
 .export-slide-mode .card {
     border-radius: 16px !important;
-    padding: 20px !important;
+    padding: 18px !important;
+    overflow: hidden !important;
 }
 
 .export-slide-mode .card-title {
-    font-size: 22px !important;
+    font-size: 20px !important;
     font-weight: 800 !important;
-    margin-bottom: 15px !important;
-    padding-bottom: 12px !important;
+    margin-bottom: 12px !important;
+    padding-bottom: 10px !important;
 }
 
 .export-slide-mode .stat-item {
-    padding: 14px !important;
-    font-size: 18px !important;
-    margin-bottom: 12px !important;
+    padding: 12px !important;
+    font-size: 16px !important;
+    margin-bottom: 10px !important;
 }
 
 .export-slide-mode .stat-value {
-    font-size: 24px !important;
+    font-size: 22px !important;
     font-weight: 800 !important;
 }
 
 .export-slide-mode .legend-item {
-    padding: 12px !important;
-    font-size: 16px !important;
-    margin-bottom: 6px !important;
+    padding: 10px !important;
+    font-size: 14px !important;
+    margin-bottom: 5px !important;
 }
 
 .export-slide-mode .legend-color-box {
-    width: 28px !important;
-    height: 28px !important;
-    font-size: 14px !important;
+    width: 26px !important;
+    height: 26px !important;
+    font-size: 12px !important;
 }
 
 .export-slide-mode .legend-count {
-    padding: 4px 12px !important;
-    font-size: 14px !important;
+    padding: 3px 10px !important;
+    font-size: 12px !important;
 }
 
 .export-slide-mode .chart-container {
-    height: 320px !important;
-}
-
-.export-slide-mode .bar-chart-container {
     height: 280px !important;
 }
 
+.export-slide-mode .bar-chart-container {
+    height: 240px !important;
+}
+
 .export-slide-mode .map-label-container {
-    padding: 10px 18px !important;
-    font-size: 18px !important;
-    border-width: 4px !important;
+    padding: 10px 16px !important;
+    font-size: 16px !important;
+    border-width: 3px !important;
 }
 
 .export-slide-mode .map-label-count {
-    padding: 4px 12px !important;
-    font-size: 16px !important;
+    padding: 4px 10px !important;
+    font-size: 14px !important;
 }
 
 /* ✅ إخفاء العناصر غير المرغوبة أثناء التصدير */
@@ -347,6 +358,11 @@ body {
 /* ✅ تحسينات الخطوط للوضوح */
 .export-slide-mode canvas {
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif !important;
+}
+
+/* ✅ إخفاء العننصر الأصلي أثناء التصدير */
+body.exporting .main-container:not(.export-slide-mode) {
+    display: none !important;
 }
 </style>
 </head>
@@ -530,7 +546,7 @@ function processRows(rows) {
         if (!mergedData[mergeKey]) {
             mergedData[mergeKey] = { 
                 name: d.name, 
-                municipality: d.muni, 
+                municipality: d.municipality, 
                 date: d.date, 
                 points: [], 
                 categories: new Set() 
@@ -803,110 +819,147 @@ function exportExcel() {
     XLSX.writeFile(wb, "تحليل_الأحياء.xlsx");
 }
 
-// ✅ تصدير بصيغة سلايد بور بوينت 16:9
+// ✅ تصدير بصيغة سلايد بور بوينت 16:9 - مع إصلاح الخريطة
 async function exportSlide() {
     showNotification('⏳ جاري إعداد السلايد...');
     
     const captureArea = document.getElementById('captureArea');
-    const originalHTML = captureArea.innerHTML;
-    const originalClass = captureArea.className;
+    const originalParent = captureArea.parentNode;
+    const originalNextSibling = captureArea.nextSibling;
     
     try {
-        // ✅ تحميل مكتبة dom-to-image-more
-        await loadScript('https://cdnjs.cloudflare.com/ajax/libs/dom-to-image-more/3.2.0/dom-to-image-more.min.js');
+        // ✅ إضافة علامة للجسم
+        document.body.classList.add('exporting');
         
         // ✅ تطبيق نمط السلايد
         captureArea.classList.add('export-slide-mode');
         
-        // ✅ إعادة رسم الخرائط والرسوم البيانية بالأحجام الجديدة
+        // ✅ نقل العنصر إلى الجسم مباشرة لضمان الظهور
+        document.body.appendChild(captureArea);
+        
+        // ✅ إعادة تهيئة الخريطة بالكامل في الوضع الجديد
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+        // ✅ إعادة رسم الخريطة
         map.invalidateSize();
+        
+        // ✅ انتظار تحميل الخريطة بالكامل
+        await waitForMapTiles();
         
         // ✅ إعادة رسم الرسوم البيانية بالخطوط الكبيرة
         drawChartForExport();
         drawCategoryChartForExport();
         
         // ✅ انتظار اكتمال الرسوم
-        await new Promise(resolve => setTimeout(resolve, 1500));
+        await new Promise(resolve => setTimeout(resolve, 1000));
         
-        // ✅ التقاط الصورة بدقة عالية
-        const dataUrl = await domtoimage.toPng(captureArea, {
-            quality: 1,
-            bgcolor: '#667eea',
+        // ✅ التقاط الصورة باستخدام html2canvas (أفضل للخرائط)
+        const canvas = await html2canvas(captureArea, {
             width: 1920,
             height: 1080,
-            style: {
-                'transform': 'scale(1)',
-                'transform-origin': 'top left',
-                'width': '1920px',
-                'height': '1080px'
+            scale: 1,
+            useCORS: true,
+            allowTaint: true,
+            backgroundColor: '#667eea',
+            logging: false,
+            onclone: function(clonedDoc) {
+                // ✅ التأكد من ظهور الخريطة في النسخة المستنسخة
+                const clonedMap = clonedDoc.querySelector('#map');
+                if (clonedMap) {
+                    clonedMap.style.visibility = 'visible';
+                    clonedMap.style.opacity = '1';
+                }
             }
         });
         
         // ✅ إضافة عنوان احترافي
-        const canvas = document.createElement('canvas');
-        const ctx = canvas.getContext('2d');
-        const img = new Image();
+        const finalCanvas = document.createElement('canvas');
+        const ctx = finalCanvas.getContext('2d');
         
-        img.onload = () => {
-            // ✅ إعداد canvas بحجم Full HD
-            canvas.width = 1920;
-            canvas.height = 1080;
-            
-            // ✅ رسم الخلفية
-            const gradient = ctx.createLinearGradient(0, 0, 0, 120);
-            gradient.addColorStop(0, '#667eea');
-            gradient.addColorStop(1, '#764ba2');
-            ctx.fillStyle = gradient;
-            ctx.fillRect(0, 0, 1920, 120);
-            
-            // ✅ عنوان رئيسي كبير وواضح
-            ctx.fillStyle = '#ffffff';
-            ctx.font = 'bold 48px "Segoe UI", Tahoma, Arial';
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.fillText('📊 تقرير تحليل الأحياء', 960, 50);
-            
-            // ✅ التاريخ
-            ctx.font = 'bold 28px "Segoe UI", Tahoma, Arial';
-            ctx.fillText(new Date().toLocaleDateString('ar-SA', { 
-                weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' 
-            }), 960, 90);
-            
-            // ✅ رسم الصورة الرئيسية
-            ctx.drawImage(img, 0, 120, 1920, 960);
-            
-            // ✅ تحميل الملف
-            canvas.toBlob(blob => {
-                saveAs(blob, `تقرير_الأحياء_${new Date().toLocaleDateString('ar-SA')}.png`);
-                showNotification('✅ تم تصدير السلايد بنجاح!');
-                
-                // ✅ استعادة الحالة الأصلية
-                captureArea.className = originalClass;
-                captureArea.innerHTML = originalHTML;
-                
-                // ✅ إعادة تهيئة الخريطة
-                setTimeout(() => {
-                    initMap();
-                    applyCurrentFilter();
-                }, 500);
-                
-            }, 'image/png');
-        };
+        finalCanvas.width = 1920;
+        finalCanvas.height = 1080;
         
-        img.src = dataUrl;
+        // ✅ رسم الخلفية المتدرجة
+        const gradient = ctx.createLinearGradient(0, 0, 0, 100);
+        gradient.addColorStop(0, '#667eea');
+        gradient.addColorStop(1, '#764ba2');
+        ctx.fillStyle = gradient;
+        ctx.fillRect(0, 0, 1920, 100);
+        
+        // ✅ عنوان رئيسي كبير وواضح
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 44px "Segoe UI", Tahoma, Arial';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('📊 تقرير تحليل الأحياء', 960, 45);
+        
+        // ✅ التاريخ
+        ctx.font = 'bold 24px "Segoe UI", Tahoma, Arial';
+        ctx.fillText(new Date().toLocaleDateString('ar-SA', { 
+            weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' 
+        }), 960, 75);
+        
+        // ✅ رسم الصورة الملتقطة (مع إزاحة للعنوان)
+        ctx.drawImage(canvas, 0, 100, 1920, 980);
+        
+        // ✅ تحميل الملف
+        finalCanvas.toBlob(blob => {
+            saveAs(blob, `تقرير_الأحياء_${new Date().toLocaleDateString('ar-SA')}.png`);
+            showNotification('✅ تم تصدير السلايد بنجاح!');
+            
+            // ✅ استعادة الحالة الأصلية
+            restoreOriginalState(captureArea, originalParent, originalNextSibling);
+            
+        }, 'image/png');
         
     } catch (err) {
         console.error(err);
         alert('حدث خطأ: ' + err.message);
-        
-        // ✅ استعادة الحالة الأصلية في حالة الخطأ
-        captureArea.className = originalClass;
-        captureArea.innerHTML = originalHTML;
-        setTimeout(() => {
-            initMap();
-            applyCurrentFilter();
-        }, 500);
+        restoreOriginalState(captureArea, originalParent, originalNextSibling);
     }
+}
+
+// ✅ انتظار تحميل بلاط الخريطة
+function waitForMapTiles() {
+    return new Promise((resolve) => {
+        let attempts = 0;
+        const maxAttempts = 50; // 5 ثواني كحد أقصى
+        
+        const checkTiles = setInterval(() => {
+            attempts++;
+            const tiles = document.querySelectorAll('.leaflet-tile-loaded');
+            
+            // ✅ التحقق من وجود بلاط محمل
+            if (tiles.length > 0 || attempts >= maxAttempts) {
+                clearInterval(checkTiles);
+                
+                // ✅ انتظار ثانية إضافية للتأكد
+                setTimeout(() => {
+                    map.invalidateSize();
+                    resolve();
+                }, 500);
+            }
+        }, 100);
+    });
+}
+
+// ✅ استعادة الحالة الأصلية
+function restoreOriginalState(captureArea, originalParent, originalNextSibling) {
+    document.body.classList.remove('exporting');
+    captureArea.classList.remove('export-slide-mode');
+    
+    // ✅ إعادة العنصر إلى مكانه الأصلي
+    if (originalNextSibling) {
+        originalParent.insertBefore(captureArea, originalNextSibling);
+    } else {
+        originalParent.appendChild(captureArea);
+    }
+    
+    // ✅ إعادة تهيئة الخريطة
+    setTimeout(() => {
+        map.invalidateSize();
+        draw();
+    }, 500);
 }
 
 // ✅ رسم الرسم البياني للتصدير مع خطوط كبيرة
@@ -1017,16 +1070,6 @@ function drawCategoryChartForExport() {
                 }
             }
         }
-    });
-}
-
-function loadScript(src) {
-    return new Promise((resolve, reject) => {
-        const script = document.createElement('script');
-        script.src = src;
-        script.onload = resolve;
-        script.onerror = reject;
-        document.head.appendChild(script);
     });
 }
 
