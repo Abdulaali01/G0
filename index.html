@@ -3,9 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>تحليل الأحياء - مجاني 100%</title>
+<title>تحليل الأحياء - نهائي</title>
 
-<!-- كل المكتبات مجانية -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
@@ -13,7 +12,6 @@
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://unpkg.com/leaflet-simple-map-screenshoter@0.5.0/dist/leaflet-simple-map-screenshoter.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -78,8 +76,8 @@ body {
     overflow: hidden;
     box-shadow: 0 10px 40px rgba(0,0,0,0.2);
     position: relative;
-    height: 60vh;
-    min-height: 450px;
+    height: 70vh;
+    width: 100%;
 }
 
 #map {
@@ -124,7 +122,7 @@ body {
 
 .stats-section {
     display: grid;
-    grid-template-columns: 280px 1fr 1fr;
+    grid-template-columns: 200px 1fr 1fr;
     gap: 20px;
 }
 
@@ -136,7 +134,7 @@ body {
 }
 
 .card-title {
-    font-size: 18px;
+    font-size: 16px;
     font-weight: 700;
     color: #333;
     margin-bottom: 15px;
@@ -148,48 +146,81 @@ body {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 12px;
+    padding: 10px;
     margin-bottom: 8px;
     background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
     border-radius: 10px;
-    font-size: 14px;
+    font-size: 13px;
 }
 
 .stat-value {
     font-weight: 700;
     color: #667eea;
-    font-size: 18px;
+    font-size: 16px;
+}
+
+.legend-container {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
 }
 
 .legend-item {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 8px;
     padding: 8px;
-    margin-bottom: 5px;
+    background: #f8f9fa;
     border-radius: 8px;
     cursor: pointer;
-    transition: background 0.3s;
+    transition: all 0.3s;
+    font-size: 12px;
 }
 
 .legend-item:hover {
-    background: #f0f0f0;
+    background: #e9ecef;
+    transform: translateX(-5px);
 }
 
-.legend-color {
+.legend-color-box {
     width: 20px;
     height: 20px;
-    border-radius: 50%;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    border-radius: 4px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 10px;
+    font-weight: bold;
+}
+
+.legend-text {
+    flex: 1;
+    text-align: right;
+}
+
+.legend-count {
+    background: #333;
+    color: white;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 11px;
+    font-weight: bold;
 }
 
 .chart-container {
     position: relative;
-    height: 280px;
+    height: 300px;
     width: 100%;
 }
 
-/* ✅ تنسيق محسّن لليبل */
+.bar-chart-container {
+    position: relative;
+    height: 250px;
+    width: 100%;
+}
+
 .map-label-container {
     background: rgba(255, 255, 255, 0.95);
     padding: 8px 14px;
@@ -249,7 +280,7 @@ body {
     <button onclick="clearAllData()" style="background: #ff4757 !important;">🗑️ مسح</button>
 </div>
 
-<div class="main-container" id="fullReport">
+<div class="main-container" id="captureArea">
     
     <div class="map-wrapper" id="mapSection">
         <div id="map"></div>
@@ -261,6 +292,18 @@ body {
     </div>
     
     <div class="stats-section" id="statsSection">
+        
+        <div class="card">
+            <div class="card-title">🎨 دليل الألوان</div>
+            <div id="legendBox" class="legend-container"></div>
+        </div>
+        
+        <div class="card">
+            <div class="card-title">📊 توزيع التقارير بالأحياء</div>
+            <div class="chart-container">
+                <canvas id="chart"></canvas>
+            </div>
+        </div>
         
         <div class="card">
             <div class="card-title">📈 إحصائيات عامة</div>
@@ -276,27 +319,19 @@ body {
                 <span>الأعلى تقارير</span>
                 <span class="stat-value" id="topDistrict">-</span>
             </div>
-            <div style="margin-top: 20px;">
-                <div class="card-title">🎨 دليل الألوان</div>
-                <div id="legendBox"></div>
-            </div>
-        </div>
-        
-        <div class="card">
-            <div class="card-title">📊 توزيع التقارير بالأحياء</div>
-            <div class="chart-container">
-                <canvas id="chart"></canvas>
-            </div>
-        </div>
-        
-        <div class="card">
-            <div class="card-title">📈 توزيع التصنيفات</div>
-            <div class="chart-container">
-                <canvas id="chart2"></canvas>
-            </div>
         </div>
         
     </div>
+    
+    <div class="stats-section">
+        <div class="card" style="grid-column: 1 / -1;">
+            <div class="card-title">📊 توزيع التصنيفات</div>
+            <div class="bar-chart-container">
+                <canvas id="chart2"></canvas>
+            </div>
+        </div>
+    </div>
+    
 </div>
 
 <script>
@@ -379,7 +414,6 @@ function processRows(rows) {
         if (!categoryData[category]) categoryData[category] = 0;
         categoryData[category]++;
 
-        // مفتاح فريد مؤقت
         let key = name + "||" + muni + "||" + date + "||" + i;
         if (!mapData[key]) {
             mapData[key] = { name, municipality: muni, date, points: [], categories: new Set() };
@@ -391,7 +425,6 @@ function processRows(rows) {
     fillSelect("municipalityFilter", allMunicipalities);
     fillSelect("dateFilter", allDates);
 
-    // ✅ دمج الأحياء بنفس الاسم والبلدية
     let mergedData = {};
     Object.values(mapData).forEach(d => {
         let mergeKey = d.name + "||" + d.municipality;
@@ -404,7 +437,6 @@ function processRows(rows) {
                 categories: new Set() 
             };
         }
-        // دمج النقاط بدون تكرار
         d.points.forEach(p => {
             let isDuplicate = mergedData[mergeKey].points.some(existing => 
                 Math.abs(existing.lat - p.lat) < 0.0001 && 
@@ -414,11 +446,9 @@ function processRows(rows) {
                 mergedData[mergeKey].points.push(p);
             }
         });
-        // دمج التصنيفات
         d.categories.forEach(c => mergedData[mergeKey].categories.add(c));
     });
 
-    // ✅ استخدام البيانات المدمجة (بدون تكرار)
     rawDistricts = Object.values(mergedData).map((d, i) => {
         let cLat = d.points.reduce((s, p) => s + p.lat, 0) / d.points.length;
         let cLng = d.points.reduce((s, p) => s + p.lng, 0) / d.points.length;
@@ -438,7 +468,7 @@ function processRows(rows) {
     document.getElementById("topDistrict").textContent = rawDistricts[0]?.name || "-";
 
     applyCurrentFilter();
-    showNotification(`✅ تم تحميل ${total} تقرير من ${rawDistricts.length} حي فريد`);
+    showNotification(`✅ تم تحميل ${total} تقرير من ${rawDistricts.length} حي`);
 }
 
 function fillSelect(id, set) {
@@ -465,8 +495,23 @@ function applyCurrentFilter() {
     if (top === "10") arr = arr.slice(0, 10);
 
     visibleDistricts = arr;
+    
+    // ✅ تحديث التصنيفات حسب الفلتر
+    updateCategoryData();
+    
     draw();
     drawCategoryChart();
+}
+
+// ✅ تحديث بيانات التصنيفات حسب الأحياء المفلترة
+function updateCategoryData() {
+    categoryData = {};
+    visibleDistricts.forEach(d => {
+        d.categories.forEach(cat => {
+            if (!categoryData[cat]) categoryData[cat] = 0;
+            categoryData[cat]++;
+        });
+    });
 }
 
 function draw() {
@@ -495,7 +540,6 @@ function draw() {
 
         polygons.push(poly);
 
-        // ✅ ليبل واحد فقط لكل حي
         let label = L.marker([d.centerLat, d.centerLng], {
             icon: L.divIcon({
                 className: 'custom-label',
@@ -555,19 +599,14 @@ function drawChart() {
         options: {
             responsive: true,
             maintainAspectRatio: false,
+            animation: false,
             plugins: {
                 legend: { display: false },
-                datalabels: {
-                    anchor: 'end',
-                    align: 'top',
-                    color: '#333',
-                    font: { weight: 'bold', size: 12 },
-                    formatter: (value) => value
-                }
+                datalabels: { display: false }
             },
             scales: {
                 y: { beginAtZero: true, grid: { color: 'rgba(0,0,0,0.05)' } },
-                x: { grid: { display: false }, ticks: { maxRotation: 45, minRotation: 45 } }
+                x: { grid: { display: false }, ticks: { maxRotation: 45, minRotation: 45, font: { size: 10 } } }
             }
         }
     });
@@ -579,32 +618,38 @@ function drawCategoryChart() {
     const cats = Object.keys(categoryData);
     const vals = Object.values(categoryData);
     
+    const sorted = cats.map((cat, i) => ({ cat, val: vals[i], color: colors[i % colors.length] }))
+                       .sort((a, b) => b.val - a.val);
+    
     chart2 = new Chart(ctx, {
-        type: 'doughnut',
+        type: 'bar',
         data: {
-            labels: cats,
+            labels: sorted.map(s => s.cat),
             datasets: [{
-                data: vals,
-                backgroundColor: colors.slice(0, cats.length),
-                borderWidth: 3,
-                borderColor: '#fff',
-                hoverOffset: 10
+                data: sorted.map(s => s.val),
+                backgroundColor: sorted.map(s => s.color),
+                borderRadius: 10,
+                borderSkipped: false,
             }]
         },
         options: {
             responsive: true,
             maintainAspectRatio: false,
-            cutout: '60%',
+            animation: false,
+            indexAxis: 'y',
             plugins: {
-                legend: { position: 'right', labels: { usePointStyle: true, padding: 15 } },
+                legend: { display: false },
                 datalabels: {
-                    color: '#fff',
+                    anchor: 'end',
+                    align: 'right',
+                    color: '#333',
                     font: { weight: 'bold', size: 12 },
-                    formatter: (value, ctx) => {
-                        let sum = ctx.dataset.data.reduce((a, b) => a + b, 0);
-                        return (value * 100 / sum).toFixed(1) + "%";
-                    }
+                    formatter: (value) => value
                 }
+            },
+            scales: {
+                x: { beginAtZero: true, grid: { color: 'rgba(0,0,0,0.05)' } },
+                y: { grid: { display: false }, ticks: { font: { size: 11 } } }
             }
         }
     });
@@ -612,10 +657,13 @@ function drawCategoryChart() {
 
 function buildLegend() {
     const container = document.getElementById("legendBox");
-    container.innerHTML = visibleDistricts.slice(0, 10).map(d => `
-        <div class="legend-item" onclick="highlightDistrict('${d.uniqueId}')">
-            <div class="legend-color" style="background: ${d.color}"></div>
-            <span>${d.name} (${d.count})</span>
+    const sorted = [...visibleDistricts].sort((a, b) => b.count - a.count);
+    
+    container.innerHTML = sorted.slice(0, 10).map((d, index) => `
+        <div class="legend-item" onclick="highlightDistrict('${d.uniqueId}')" title="${d.name}">
+            <div class="legend-color-box" style="background: ${d.color};">${index + 1}</div>
+            <span class="legend-text">${d.name}</span>
+            <span class="legend-count">${d.count}</span>
         </div>
     `).join("");
 }
@@ -640,64 +688,86 @@ function exportExcel() {
     XLSX.writeFile(wb, "تحليل_الأحياء.xlsx");
 }
 
+// ✅ تصدير مبسط - يستخدم dom-to-image-more
 async function exportFullPage() {
     showNotification('⏳ جاري تصدير التقرير...');
     
     try {
-        const mapCanvas = await screenshoter.takeScreen('canvas');
-        const statsElement = document.getElementById('statsSection');
-        const statsCanvas = await html2canvas(statsElement, {
-            scale: 2,
-            backgroundColor: '#667eea',
-            useCORS: true,
-            logging: false
+        // ✅ تحميل المكتبة ديناميكياً
+        await loadScript('https://cdnjs.cloudflare.com/ajax/libs/dom-to-image-more/3.2.0/dom-to-image-more.min.js');
+        
+        const node = document.getElementById('captureArea');
+        
+        // ✅ انتظار الرسوم تكتمل
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
+        const dataUrl = await domtoimage.toPng(node, {
+            quality: 1,
+            bgcolor: '#667eea',
+            width: node.offsetWidth,
+            height: node.offsetHeight,
+            style: {
+                'transform': 'scale(1)',
+                'transform-origin': 'top left'
+            }
         });
         
-        const padding = 40;
-        const titleHeight = 80;
-        const finalWidth = Math.max(mapCanvas.width, statsCanvas.width) + (padding * 2);
-        const finalHeight = mapCanvas.height + statsCanvas.height + titleHeight + (padding * 3);
+        // إضافة عنوان
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        const img = new Image();
         
-        const finalCanvas = document.createElement('canvas');
-        finalCanvas.width = finalWidth;
-        finalCanvas.height = finalHeight;
-        const ctx = finalCanvas.getContext('2d');
+        img.onload = () => {
+            const titleHeight = 100;
+            canvas.width = img.width;
+            canvas.height = img.height + titleHeight;
+            
+            // خلفية العنوان
+            const gradient = ctx.createLinearGradient(0, 0, 0, titleHeight);
+            gradient.addColorStop(0, '#667eea');
+            gradient.addColorStop(1, '#764ba2');
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, canvas.width, titleHeight);
+            
+            // نص العنوان
+            ctx.fillStyle = '#ffffff';
+            ctx.font = 'bold 40px "Segoe UI", Tahoma';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('📊 تقرير تحليل الأحياء', canvas.width / 2, titleHeight / 2 - 10);
+            
+            ctx.font = '20px "Segoe UI", Tahoma';
+            ctx.fillText(new Date().toLocaleDateString('ar-SA', { 
+                weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' 
+            }), canvas.width / 2, titleHeight / 2 + 25);
+            
+            // الصورة
+            ctx.drawImage(img, 0, titleHeight);
+            
+            // تحميل
+            canvas.toBlob(blob => {
+                saveAs(blob, `تقرير_الأحياء_${new Date().toLocaleDateString('ar-SA')}.png`);
+                showNotification('✅ تم تصدير التقرير!');
+            });
+        };
         
-        const gradient = ctx.createLinearGradient(0, 0, 0, finalHeight);
-        gradient.addColorStop(0, '#667eea');
-        gradient.addColorStop(1, '#764ba2');
-        ctx.fillStyle = gradient;
-        ctx.fillRect(0, 0, finalWidth, finalHeight);
-        
-        ctx.fillStyle = '#ffffff';
-        ctx.font = 'bold 36px "Segoe UI", Tahoma';
-        ctx.textAlign = 'center';
-        ctx.fillText('📊 تقرير تحليل الأحياء', finalWidth / 2, 50);
-        
-        ctx.font = '20px "Segoe UI", Tahoma';
-        ctx.fillText(new Date().toLocaleDateString('ar-SA', { 
-            weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' 
-        }), finalWidth / 2, 85);
-        
-        ctx.drawImage(mapCanvas, padding, titleHeight + padding);
-        ctx.drawImage(statsCanvas, padding, titleHeight + mapCanvas.height + (padding * 2));
-        
-        ctx.strokeStyle = 'rgba(255,255,255,0.5)';
-        ctx.lineWidth = 3;
-        ctx.beginPath();
-        ctx.moveTo(padding, titleHeight + mapCanvas.height + (padding * 1.5));
-        ctx.lineTo(finalWidth - padding, titleHeight + mapCanvas.height + (padding * 1.5));
-        ctx.stroke();
-        
-        finalCanvas.toBlob(blob => {
-            saveAs(blob, `تقرير_الأحياء_${new Date().toLocaleDateString('ar-SA')}.png`);
-            showNotification('✅ تم تصدير التقرير!');
-        }, 'image/png', 1.0);
+        img.src = dataUrl;
         
     } catch (err) {
         console.error(err);
         alert('حدث خطأ: ' + err.message);
     }
+}
+
+// ✅ تحميل سكربت ديناميكي
+function loadScript(src) {
+    return new Promise((resolve, reject) => {
+        const script = document.createElement('script');
+        script.src = src;
+        script.onload = resolve;
+        script.onerror = reject;
+        document.head.appendChild(script);
+    });
 }
 
 function fitAll() {
