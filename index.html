@@ -251,143 +251,155 @@ body {
     text-align: center;
 }
 
-/* ✅ أنماط خاصة للتصدير - الخريطة على اليمين */
-.export-slide-mode {
+/* ✅ أنماط التصدير - تخطيط جديد */
+.export-container {
     width: 1920px !important;
     height: 980px !important;
-    margin: 0 !important;
-    padding: 20px !important;
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
     display: grid !important;
-    grid-template-columns: 720px 1fr !important;
-    grid-template-rows: 1fr !important;
+    grid-template-columns: 680px 1fr !important;
     gap: 20px !important;
+    padding: 20px !important;
     position: fixed !important;
     top: 100px !important;
     left: 0 !important;
     z-index: 999999 !important;
-    overflow: hidden !important;
 }
 
-/* ✅ العمود الأيسر - البيانات */
-.export-slide-mode .left-column {
-    grid-column: 1 !important;
+/* ✅ العمود الأيسر */
+.export-left {
     display: flex !important;
     flex-direction: column !important;
     gap: 15px !important;
     height: 100% !important;
 }
 
-/* ✅ الصف العلوي - البطاقات الثلاث */
-.export-slide-mode .top-cards {
+/* ✅ الصف العلوي - دليل الألوان + الرسم والإحصائيات */
+.export-top-row {
     display: grid !important;
-    grid-template-columns: 1fr 1fr 1fr !important;
+    grid-template-columns: 220px 1fr !important;
     gap: 15px !important;
     height: 55% !important;
 }
 
+/* ✅ دليل الألوان */
+.export-legend {
+    background: white;
+    border-radius: 16px;
+    padding: 15px;
+    overflow: hidden;
+}
+
+.export-legend .card-title {
+    font-size: 16px;
+    font-weight: 800;
+    margin-bottom: 10px;
+    padding-bottom: 8px;
+}
+
+/* ✅ بطاقة الرسم البياني والإحصائيات المدمجة */
+.export-chart-stats {
+    background: white;
+    border-radius: 16px;
+    padding: 15px;
+    display: flex;
+    flex-direction: column;
+}
+
+.export-chart-stats .card-title {
+    font-size: 16px;
+    font-weight: 800;
+    margin-bottom: 10px;
+    padding-bottom: 8px;
+}
+
+.export-chart-stats .chart-area {
+    flex: 1;
+    min-height: 180px;
+    position: relative;
+}
+
+.export-chart-stats .stats-area {
+    display: grid !important;
+    grid-template-columns: repeat(3, 1fr) !important;
+    gap: 10px !important;
+    margin-top: 10px !important;
+    padding-top: 10px !important;
+    border-top: 2px solid #e0e0e0 !important;
+}
+
+.export-chart-stats .stat-box {
+    background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+    border-radius: 10px;
+    padding: 10px;
+    text-align: center;
+}
+
+.export-chart-stats .stat-label {
+    font-size: 12px;
+    color: #666;
+    margin-bottom: 5px;
+}
+
+.export-chart-stats .stat-value {
+    font-size: 20px;
+    font-weight: 800;
+    color: #667eea;
+}
+
 /* ✅ الصف السفلي - التصنيفات */
-.export-slide-mode .bottom-chart {
+.export-categories {
     height: 45% !important;
+    background: white;
+    border-radius: 16px;
+    padding: 15px;
+    display: flex;
+    flex-direction: column;
 }
 
-.export-slide-mode .bottom-chart .card {
-    height: 100% !important;
+.export-categories .card-title {
+    font-size: 16px;
+    font-weight: 800;
+    margin-bottom: 10px;
+    padding-bottom: 8px;
 }
 
-.export-slide-mode .bottom-chart .bar-chart-container {
-    height: calc(100% - 50px) !important;
+.export-categories .chart-area {
+    flex: 1;
+    position: relative;
 }
 
 /* ✅ الخريطة على اليمين */
-.export-slide-mode .map-wrapper {
-    grid-column: 2 !important;
+.export-map {
+    background: white;
+    border-radius: 16px;
+    overflow: hidden;
+    position: relative;
     height: 100% !important;
     width: 100% !important;
-    border-radius: 16px !important;
-    position: relative !important;
 }
 
-.export-slide-mode #map {
+.export-map #mapExport {
     height: 100% !important;
     width: 100% !important;
-    position: absolute !important;
-    top: 0 !important;
-    left: 0 !important;
 }
 
-/* ✅ إخفاء الأقسام الأصلية وإظهار التخطيط الجديد */
-.export-slide-mode > .stats-section {
+/* ✅ إخفاء العناصر الأصلية */
+.export-container .original-content {
     display: none !important;
-}
-
-.export-slide-mode > .map-wrapper {
-    display: none !important;
-}
-
-.export-slide-mode .card {
-    border-radius: 16px !important;
-    padding: 15px !important;
-    overflow: hidden !important;
-}
-
-.export-slide-mode .card-title {
-    font-size: 16px !important;
-    font-weight: 800 !important;
-    margin-bottom: 10px !important;
-    padding-bottom: 8px !important;
-}
-
-.export-slide-mode .stat-item {
-    padding: 10px !important;
-    font-size: 14px !important;
-    margin-bottom: 8px !important;
-}
-
-.export-slide-mode .stat-value {
-    font-size: 20px !important;
-    font-weight: 800 !important;
-}
-
-.export-slide-mode .legend-item {
-    padding: 8px !important;
-    font-size: 12px !important;
-    margin-bottom: 4px !important;
-}
-
-.export-slide-mode .legend-color-box {
-    width: 22px !important;
-    height: 22px !important;
-    font-size: 11px !important;
-}
-
-.export-slide-mode .legend-count {
-    padding: 3px 8px !important;
-    font-size: 11px !important;
-}
-
-.export-slide-mode .chart-container {
-    height: calc(100% - 50px) !important;
-}
-
-.export-slide-mode .map-label-container {
-    padding: 8px 14px !important;
-    font-size: 15px !important;
-    border-width: 3px !important;
-}
-
-.export-slide-mode .map-label-count {
-    padding: 3px 10px !important;
-    font-size: 13px !important;
 }
 
 /* ✅ إخفاء العناصر غير المرغوبة */
-.export-slide-mode .custom-zoom,
-.export-slide-mode .top-bar {
+.export-container ~ .top-bar,
+.export-container ~ .custom-zoom {
     display: none !important;
 }
 
-body.exporting .main-container:not(.export-slide-mode) {
+body.exporting {
+    overflow: hidden !important;
+}
+
+body.exporting .main-container:not(.export-container) {
     display: none !important;
 }
 </style>
@@ -845,57 +857,97 @@ function exportExcel() {
     XLSX.writeFile(wb, "تحليل_الأحياء.xlsx");
 }
 
-// ✅ تصدير بصيغة سلايد بور بوينت - الخريطة على اليمين
+// ✅ تصدير بصيغة سلايد بور بوينت
 async function exportSlide() {
     showNotification('⏳ جاري إعداد السلايد...');
     
     const captureArea = document.getElementById('captureArea');
-    const originalParent = captureArea.parentNode;
-    const originalNextSibling = captureArea.nextSibling;
     
     try {
         document.body.classList.add('exporting');
         
-        // ✅ إنشاء التخطيط الجديد للتصدير
+        // ✅ إنشاء حاوية التصدير
+        const exportContainer = document.createElement('div');
+        exportContainer.className = 'export-container';
+        exportContainer.id = 'exportContainer';
+        
+        // ✅ إنشاء العمود الأيسر
         const leftColumn = document.createElement('div');
-        leftColumn.className = 'left-column';
+        leftColumn.className = 'export-left';
         
-        const topCards = document.createElement('div');
-        topCards.className = 'top-cards';
+        // ✅ الصف العلوي
+        const topRow = document.createElement('div');
+        topRow.className = 'export-top-row';
         
-        // ✅ نسخ البطاقات الثلاث
-        const statsSection = document.getElementById('statsSection');
-        const cards = statsSection.querySelectorAll('.card');
-        cards.forEach(card => {
-            topCards.appendChild(card.cloneNode(true));
-        });
+        // ✅ دليل الألوان
+        const legendBox = document.createElement('div');
+        legendBox.className = 'export-legend';
+        legendBox.innerHTML = `
+            <div class="card-title">🎨 دليل الألوان</div>
+            <div class="legend-container" id="exportLegend"></div>
+        `;
         
-        const bottomChart = document.createElement('div');
-        bottomChart.className = 'bottom-chart';
+        // ✅ بطاقة الرسم البياني والإحصائيات المدمجة
+        const chartStatsBox = document.createElement('div');
+        chartStatsBox.className = 'export-chart-stats';
+        chartStatsBox.innerHTML = `
+            <div class="card-title">📊 توزيع التقارير بالأحياء</div>
+            <div class="chart-area">
+                <canvas id="exportChart"></canvas>
+            </div>
+            <div class="stats-area">
+                <div class="stat-box">
+                    <div class="stat-label">إجمالي التقارير</div>
+                    <div class="stat-value" id="exportTotalReports">0</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-label">عدد الأحياء</div>
+                    <div class="stat-value" id="exportTotalDistricts">0</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-label">الأعلى تقارير</div>
+                    <div class="stat-value" id="exportTopDistrict">-</div>
+                </div>
+            </div>
+        `;
         
-        // ✅ نسخ قسم التصنيفات
-        const categorySection = document.getElementById('categorySection');
-        const categoryCard = categorySection.querySelector('.card');
-        bottomChart.appendChild(categoryCard.cloneNode(true));
+        topRow.appendChild(legendBox);
+        topRow.appendChild(chartStatsBox);
         
-        leftColumn.appendChild(topCards);
-        leftColumn.appendChild(bottomChart);
+        // ✅ الصف السفلي - التصنيفات
+        const categoriesBox = document.createElement('div');
+        categoriesBox.className = 'export-categories';
+        categoriesBox.innerHTML = `
+            <div class="card-title">📊 توزيع التصنيفات</div>
+            <div class="chart-area">
+                <canvas id="exportChart2"></canvas>
+            </div>
+        `;
         
-        // ✅ نسخ الخريطة
-        const mapWrapper = document.querySelector('.map-wrapper');
-        const mapClone = mapWrapper.cloneNode(true);
-        mapClone.id = 'mapClone';
-        mapClone.innerHTML = '<div id="mapExport"></div>';
+        leftColumn.appendChild(topRow);
+        leftColumn.appendChild(categoriesBox);
         
-        // ✅ إضافة العناصر الجديدة
-        captureArea.appendChild(leftColumn);
-        captureArea.appendChild(mapClone);
+        // ✅ الخريطة على اليمين
+        const mapBox = document.createElement('div');
+        mapBox.className = 'export-map';
+        mapBox.innerHTML = '<div id="mapExport"></div>';
         
-        // ✅ تطبيق نمط السلايد
-        captureArea.classList.add('export-slide-mode');
-        document.body.appendChild(captureArea);
+        exportContainer.appendChild(leftColumn);
+        exportContainer.appendChild(mapBox);
         
-        // ✅ إنشاء خريطة جديدة للتصدير
+        // ✅ إضافة إلى الصفحة
+        document.body.appendChild(exportContainer);
+        
+        // ✅ نسخ بيانات الإحصائيات
+        document.getElementById('exportTotalReports').textContent = document.getElementById('totalReports').textContent;
+        document.getElementById('exportTotalDistricts').textContent = document.getElementById('totalDistricts').textContent;
+        document.getElementById('exportTopDistrict').textContent = document.getElementById('topDistrict').textContent;
+        
+        // ✅ نسخ دليل الألوان
+        const originalLegend = document.getElementById('legendBox').innerHTML;
+        document.getElementById('exportLegend').innerHTML = originalLegend;
+        
+        // ✅ إنشاء خريطة جديدة
         await new Promise(resolve => setTimeout(resolve, 300));
         
         const exportMap = L.map('mapExport', {
@@ -909,7 +961,7 @@ async function exportSlide() {
             crossOrigin: true
         }).addTo(exportMap);
         
-        // ✅ رسم المضلعات على الخريطة الجديدة
+        // ✅ رسم المضلعات
         visibleDistricts.forEach((d) => {
             let hull = convexHull(d.points);
             
@@ -934,15 +986,15 @@ async function exportSlide() {
         });
         
         // ✅ انتظار تحميل الخريطة
-        await new Promise(resolve => setTimeout(resolve, 1500));
+        await new Promise(resolve => setTimeout(resolve, 2000));
         
-        // ✅ إعادة رسم الرسوم البيانية في النسخ المستنسخة
-        drawChartsInClone();
+        // ✅ رسم الرسوم البيانية
+        drawExportCharts();
         
         await new Promise(resolve => setTimeout(resolve, 500));
         
         // ✅ التقاط الصورة
-        const canvas = await html2canvas(captureArea, {
+        const canvas = await html2canvas(exportContainer, {
             width: 1920,
             height: 980,
             scale: 1,
@@ -952,7 +1004,7 @@ async function exportSlide() {
             logging: false
         });
         
-        // ✅ إنشاء الصورة النهائية
+        // ✅ إنشاء الصورة النهائية مع العنوان
         const finalCanvas = document.createElement('canvas');
         const ctx = finalCanvas.getContext('2d');
         
@@ -982,134 +1034,115 @@ async function exportSlide() {
         finalCanvas.toBlob(blob => {
             saveAs(blob, `تقرير_الأحياء_${new Date().toLocaleDateString('ar-SA')}.png`);
             showNotification('✅ تم تصدير السلايد بنجاح!');
-            restoreOriginalState(captureArea, originalParent, originalNextSibling, leftColumn, mapClone);
+            
+            // ✅ تنظيف
+            document.body.classList.remove('exporting');
+            exportContainer.remove();
         }, 'image/png');
         
     } catch (err) {
         console.error(err);
         alert('حدث خطأ: ' + err.message);
-        restoreOriginalState(captureArea, originalParent, originalNextSibling);
+        document.body.classList.remove('exporting');
+        const exportContainer = document.getElementById('exportContainer');
+        if (exportContainer) exportContainer.remove();
     }
 }
 
-// ✅ رسم الرسوم البيانية في النسخ المستنسخة
-function drawChartsInClone() {
-    // ✅ رسم الرسم البياني للأحياء
-    const chartCanvas = document.querySelector('.export-slide-mode #statsSectionClone canvas');
-    if (chartCanvas) {
-        const ctx = chartCanvas.getContext('2d');
-        new Chart(ctx, {
-            type: 'bar',
-            data: {
-                labels: visibleDistricts.map(d => d.name),
-                datasets: [{
-                    data: visibleDistricts.map(d => d.count),
-                    backgroundColor: visibleDistricts.map(d => d.color),
-                    borderRadius: 6,
-                    borderSkipped: false,
-                }]
+// ✅ رسم الرسوم البيانية للتصدير
+function drawExportCharts() {
+    // ✅ رسم توزيع الأحياء
+    const ctx1 = document.getElementById('exportChart').getContext('2d');
+    new Chart(ctx1, {
+        type: 'bar',
+        data: {
+            labels: visibleDistricts.map(d => d.name),
+            datasets: [{
+                data: visibleDistricts.map(d => d.count),
+                backgroundColor: visibleDistricts.map(d => d.color),
+                borderRadius: 6,
+                borderSkipped: false,
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            animation: false,
+            plugins: {
+                legend: { display: false },
+                datalabels: {
+                    display: true,
+                    anchor: 'end',
+                    align: 'top',
+                    color: '#333',
+                    font: { weight: 'bold', size: 11 },
+                    formatter: (value) => value
+                }
             },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                animation: false,
-                plugins: {
-                    legend: { display: false },
-                    datalabels: {
-                        display: true,
-                        anchor: 'end',
-                        align: 'top',
-                        color: '#333',
-                        font: { weight: 'bold', size: 12 },
-                        formatter: (value) => value
-                    }
+            scales: {
+                y: { 
+                    beginAtZero: true, 
+                    grid: { color: 'rgba(0,0,0,0.1)' },
+                    ticks: { font: { size: 10, weight: 'bold' } }
                 },
-                scales: {
-                    y: { 
-                        beginAtZero: true, 
-                        grid: { color: 'rgba(0,0,0,0.1)' },
-                        ticks: { font: { size: 10, weight: 'bold' } }
-                    },
-                    x: { 
-                        grid: { display: false }, 
-                        ticks: { font: { size: 9, weight: 'bold' } } 
-                    }
+                x: { 
+                    grid: { display: false }, 
+                    ticks: { 
+                        maxRotation: 45, 
+                        minRotation: 45, 
+                        font: { size: 9, weight: 'bold' } 
+                    } 
                 }
             }
-        });
-    }
+        }
+    });
     
-    // ✅ رسم رسم التصنيفات
+    // ✅ رسم التصنيفات
     const cats = Object.keys(categoryData);
     const vals = Object.values(categoryData);
     const sorted = cats.map((cat, i) => ({ cat, val: vals[i], color: colors[i % colors.length] }))
                        .sort((a, b) => b.val - a.val);
     
-    const chart2Canvas = document.querySelector('.export-slide-mode .bottom-chart canvas');
-    if (chart2Canvas) {
-        const ctx = chart2Canvas.getContext('2d');
-        new Chart(ctx, {
-            type: 'bar',
-            data: {
-                labels: sorted.map(s => s.cat),
-                datasets: [{
-                    data: sorted.map(s => s.val),
-                    backgroundColor: sorted.map(s => s.color),
-                    borderRadius: 6,
-                    borderSkipped: false,
-                }]
+    const ctx2 = document.getElementById('exportChart2').getContext('2d');
+    new Chart(ctx2, {
+        type: 'bar',
+        data: {
+            labels: sorted.map(s => s.cat),
+            datasets: [{
+                data: sorted.map(s => s.val),
+                backgroundColor: sorted.map(s => s.color),
+                borderRadius: 6,
+                borderSkipped: false,
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            animation: false,
+            indexAxis: 'y',
+            plugins: {
+                legend: { display: false },
+                datalabels: {
+                    anchor: 'end',
+                    align: 'right',
+                    color: '#333',
+                    font: { weight: 'bold', size: 11 },
+                    formatter: (value) => value
+                }
             },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                animation: false,
-                indexAxis: 'y',
-                plugins: {
-                    legend: { display: false },
-                    datalabels: {
-                        anchor: 'end',
-                        align: 'right',
-                        color: '#333',
-                        font: { weight: 'bold', size: 12 },
-                        formatter: (value) => value
-                    }
+            scales: {
+                x: { 
+                    beginAtZero: true, 
+                    grid: { color: 'rgba(0,0,0,0.1)' },
+                    ticks: { font: { size: 10, weight: 'bold' } }
                 },
-                scales: {
-                    x: { 
-                        beginAtZero: true, 
-                        grid: { color: 'rgba(0,0,0,0.1)' },
-                        ticks: { font: { size: 10, weight: 'bold' } }
-                    },
-                    y: { 
-                        grid: { display: false }, 
-                        ticks: { font: { size: 11, weight: 'bold' } } 
-                    }
+                y: { 
+                    grid: { display: false }, 
+                    ticks: { font: { size: 10, weight: 'bold' } } 
                 }
             }
-        });
-    }
-}
-
-// ✅ استعادة الحالة الأصلية
-function restoreOriginalState(captureArea, originalParent, originalNextSibling, leftColumn, mapClone) {
-    document.body.classList.remove('exporting');
-    captureArea.classList.remove('export-slide-mode');
-    
-    // ✅ إزالة العناصر المضافة
-    if (leftColumn) leftColumn.remove();
-    if (mapClone) mapClone.remove();
-    
-    if (originalNextSibling) {
-        originalParent.insertBefore(captureArea, originalNextSibling);
-    } else {
-        originalParent.appendChild(captureArea);
-    }
-    
-    setTimeout(() => {
-        map.invalidateSize();
-        draw();
-        drawCategoryChart();
-    }, 500);
+        }
+    });
 }
 
 function fitAll() {
